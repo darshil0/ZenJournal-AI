@@ -20,6 +20,7 @@
   @apply w-full bg-transparent border-none focus:ring-0 resize-none text-lg leading-relaxed placeholder:text-gray-300;
 }
 
+/* ── ProseMirror / TipTap Editor ── */
 .ProseMirror {
   @apply outline-none min-h-[500px] text-[17px] leading-[1.8] font-editor text-gray-800;
 }
@@ -28,8 +29,48 @@
   @apply mb-4;
 }
 
+.ProseMirror h1 {
+  @apply text-3xl font-bold mb-4 mt-6 text-gray-900;
+}
+
+.ProseMirror h2 {
+  @apply text-2xl font-semibold mb-3 mt-5 text-gray-900;
+}
+
+.ProseMirror h3 {
+  @apply text-xl font-semibold mb-2 mt-4 text-gray-900;
+}
+
 .ProseMirror ul {
-  @apply list-disc ml-6 mb-4;
+  @apply list-disc ml-6 mb-4 space-y-1;
+}
+
+.ProseMirror ol {
+  @apply list-decimal ml-6 mb-4 space-y-1;
+}
+
+.ProseMirror li {
+  @apply leading-relaxed;
+}
+
+.ProseMirror li p {
+  @apply mb-0;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-emerald-200 pl-4 ml-0 my-4 italic text-gray-600;
+}
+
+.ProseMirror code {
+  @apply bg-gray-100 text-emerald-700 rounded px-1.5 py-0.5 text-[15px] font-mono;
+}
+
+.ProseMirror pre {
+  @apply bg-gray-900 text-gray-100 rounded-xl p-4 my-4 overflow-x-auto;
+}
+
+.ProseMirror pre code {
+  @apply bg-transparent text-gray-100 p-0;
 }
 
 .ProseMirror strong {
@@ -40,6 +81,44 @@
   @apply italic;
 }
 
+.ProseMirror u {
+  @apply underline;
+}
+
+.ProseMirror a {
+  @apply text-emerald-600 underline hover:text-emerald-800 transition-colors cursor-pointer;
+}
+
+.ProseMirror img {
+  @apply max-w-full rounded-xl my-4;
+}
+
+.ProseMirror hr {
+  @apply border-gray-200 my-6;
+}
+
+/* Task List */
+.ProseMirror ul[data-type="taskList"] {
+  @apply list-none ml-0 pl-0;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  @apply flex items-start gap-2;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label {
+  @apply mt-1 flex-shrink-0;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  @apply w-4 h-4 accent-emerald-600 cursor-pointer;
+}
+
+.ProseMirror ul[data-type="taskList"] li > div {
+  @apply flex-1;
+}
+
+/* Placeholder */
 .ProseMirror .is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -48,3 +127,10 @@
   height: 0;
 }
 
+.ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
