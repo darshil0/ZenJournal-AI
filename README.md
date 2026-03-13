@@ -31,11 +31,6 @@ ZenJournal AI is a calm, focused journaling experience powered by Google's Gemin
 - **Export** — Download all your entries as a JSON file at any time
 - **Privacy-first** — All data lives in your browser's `localStorage`. Nothing is sent to a server
 
----
-
-## Screenshots
-
-> _Add your own screenshots here once the app is deployed._
 
 ---
 
