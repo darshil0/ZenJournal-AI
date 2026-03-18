@@ -61,15 +61,15 @@ import { generateJournalInsight, chatWithAI, generateWeeklySummary } from './ser
 import { SEED_ENTRIES } from './data/seedEntries';
 
 const MOODS = [
-  { label: 'Joyful', emoji: '😊' },
-  { label: 'Calm', emoji: '😌' },
-  { label: 'Anxious', emoji: '😰' },
-  { label: 'Sad', emoji: '😔' },
-  { label: 'Angry', emoji: '😠' },
-  { label: 'Confused', emoji: '😕' },
-  { label: 'Numb', emoji: '😶' },
-  { label: 'Grateful', emoji: '🙏' },
-  { label: 'Overwhelmed', emoji: '🤯' },
+  { label: 'Joyful', emoji: '😊', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+  { label: 'Calm', emoji: '😌', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+  { label: 'Anxious', emoji: '😰', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
+  { label: 'Sad', emoji: '😔', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+  { label: 'Angry', emoji: '😠', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100' },
+  { label: 'Confused', emoji: '😕', color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
+  { label: 'Numb', emoji: '😶', color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-100' },
+  { label: 'Grateful', emoji: '🙏', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+  { label: 'Overwhelmed', emoji: '🤯', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
 ];
 
 export default function App() {
@@ -84,6 +84,8 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [showJsonPreview, setShowJsonPreview] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('Copied to clipboard');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
     end: null
@@ -100,11 +102,13 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   // Summary State
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [weeklySummary, setWeeklySummary] = useState<WeeklySummary | null>(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -157,10 +161,55 @@ export default function App() {
     }
   }, []);
 
-  // Persist entries to localStorage
+  // Load settings from localStorage
   useEffect(() => {
-    localStorage.setItem('zenjournal_entries', JSON.stringify(entries));
+    const saved = localStorage.getItem('zenjournal_settings');
+    if (saved) {
+      try {
+        setSettings(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load settings', e);
+      }
+    }
+  }, []);
+
+  const entriesRef = React.useRef(entries);
+  useEffect(() => {
+    entriesRef.current = entries;
   }, [entries]);
+
+  // Persist entries to localStorage with debounce
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      localStorage.setItem('zenjournal_entries', JSON.stringify(entries));
+    }, 1000);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [entries]);
+
+  // Flush changes on unmount
+  useEffect(() => {
+    return () => {
+      localStorage.setItem('zenjournal_entries', JSON.stringify(entriesRef.current));
+    };
+  }, []);
+
+  // Persist settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('zenjournal_settings', JSON.stringify(settings));
+  }, [settings]);
+
+  // Apply theme class to document
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (settings.theme === 'dark' || (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [settings.theme]);
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -171,9 +220,10 @@ export default function App() {
   const filteredEntries = useMemo(() => {
     return entries
       .filter(e => {
+        const plainContent = e.content.replace(/<[^>]*>/g, '').toLowerCase();
         const matchesSearch =
           e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          e.content.toLowerCase().includes(searchQuery.toLowerCase());
+          plainContent.includes(searchQuery.toLowerCase());
         const matchesTag = !selectedTag || e.tags.includes(selectedTag);
 
         let matchesDate = true;
@@ -285,6 +335,8 @@ export default function App() {
   const handleCopyJson = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
+    setToastMessage('Copied to clipboard');
+    setToastType('success');
     setShowToast(true);
     setTimeout(() => {
       setCopied(false);
@@ -317,6 +369,7 @@ export default function App() {
     setChatMessages(updatedMessages);
     setChatInput('');
     setIsChatLoading(true);
+    setChatError(null);
 
     try {
       const response = await chatWithAI(updatedMessages);
@@ -329,6 +382,7 @@ export default function App() {
       setChatMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Chat error', error);
+      setChatError('Failed to send message. Please try again.');
     } finally {
       setIsChatLoading(false);
     }
@@ -337,11 +391,13 @@ export default function App() {
   const handleGenerateSummary = async () => {
     setIsSummaryLoading(true);
     setIsSummaryOpen(true);
+    setSummaryError(null);
     try {
       const summary = await generateWeeklySummary(entries);
       setWeeklySummary(summary);
     } catch (error) {
       console.error('Summary error', error);
+      setSummaryError('Failed to generate weekly summary. Please ensure you have enough entries.');
     } finally {
       setIsSummaryLoading(false);
     }
@@ -391,7 +447,7 @@ export default function App() {
   }, [selectedEntry]);
 
   return (
-    <div className="flex h-screen overflow-hidden font-sans">
+    <div className="flex h-screen overflow-hidden font-sans dark:bg-[#0C0C0C]">
       {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
         {isSidebarOpen && (
@@ -399,11 +455,11 @@ export default function App() {
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 320, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            className="flex flex-col border-r border-black/5 bg-[#F7F5F2] overflow-hidden"
+            className="flex flex-col border-r border-black/5 bg-[#F7F5F2] dark:bg-[#161616] dark:border-white/5 overflow-hidden"
           >
             <div className="p-6 flex items-center justify-between">
               <div className="flex flex-col">
-                <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
+                <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2 dark:text-white">
                   <BookOpen className="w-5 h-5 text-emerald-600" />
                   ZenJournal AI
                 </h1>
@@ -418,7 +474,8 @@ export default function App() {
               </div>
               <button
                 onClick={createNewEntry}
-                className="p-2 bg-white rounded-full shadow-sm hover:shadow-md transition-all border border-black/5 text-emerald-600"
+                className="p-2 bg-white dark:bg-[#2A2A2A] dark:text-emerald-500 rounded-full shadow-sm hover:shadow-md transition-all border border-black/5 dark:border-white/10 text-emerald-600"
+                aria-label="Create new journal entry"
               >
                 <Plus className="w-5 h-5" />
               </button>
@@ -433,7 +490,7 @@ export default function App() {
                   placeholder="Search reflections..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/50 border border-black/5 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+                  className="w-full pl-10 pr-4 py-2 bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/20 dark:text-white"
                 />
               </div>
 
@@ -441,7 +498,7 @@ export default function App() {
               <div className="flex flex-wrap gap-1.5">
                 {[
                   { label: 'All Time', start: null, end: null },
-                  { label: 'Last 7 Days', start: subDays(new Date(), 7), end: new Date() },
+                  { label: 'Last 7 Days', start: startOfDay(subDays(new Date(), 6)), end: new Date() },
                   { label: 'This Month', start: startOfMonth(new Date()), end: endOfMonth(new Date()) }
                 ].map(({ label, start, end }) => {
                   const isActive =
@@ -456,7 +513,7 @@ export default function App() {
                       className={`px-2 py-1 rounded-md text-[10px] font-medium transition-all ${
                         isActive
                           ? 'bg-emerald-600 text-white shadow-sm'
-                          : 'bg-white/50 text-gray-500 hover:bg-white'
+                          : 'bg-white/50 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10'
                       }`}
                     >
                       {label}
@@ -473,7 +530,7 @@ export default function App() {
                     className={`px-2 py-1 rounded-md text-[10px] font-medium transition-all ${
                       selectedTag === null
                         ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-white/50 text-gray-500 hover:bg-white'
+                        : 'bg-white/50 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10'
                     }`}
                   >
                     All
@@ -485,7 +542,7 @@ export default function App() {
                       className={`px-2 py-1 rounded-md text-[10px] font-medium transition-all ${
                         selectedTag === tag
                           ? 'bg-emerald-600 text-white shadow-sm'
-                          : 'bg-white/50 text-gray-500 hover:bg-white'
+                          : 'bg-white/50 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10'
                       }`}
                     >
                       #{tag}
@@ -503,13 +560,13 @@ export default function App() {
                   onClick={() => setSelectedId(entry.id)}
                   className={`w-full text-left p-4 rounded-2xl transition-all group relative ${
                     selectedId === entry.id
-                      ? 'bg-white shadow-md border border-black/5 ring-1 ring-emerald-500/10'
-                      : 'hover:bg-white hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98]'
+                      ? 'bg-white dark:bg-[#2A2A2A] shadow-md border border-black/5 dark:border-white/5 ring-1 ring-emerald-500/10'
+                      : 'hover:bg-white dark:hover:bg-[#2A2A2A] hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98]'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
                         {new Date(entry.journaledAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric'
@@ -525,7 +582,7 @@ export default function App() {
                   </div>
                   <h3
                     className={`font-medium text-sm truncate ${
-                      selectedId === entry.id ? 'text-black' : 'text-gray-600'
+                      selectedId === entry.id ? 'text-black dark:text-white' : 'text-gray-600 dark:text-gray-400'
                     }`}
                   >
                     {entry.title || 'Untitled Reflection'}
@@ -563,29 +620,17 @@ export default function App() {
             <div className="px-4 mt-auto pb-6 space-y-3">
               <button
                 onClick={() => setShowSettings(true)}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-black/10 text-gray-600 rounded-2xl text-sm font-semibold hover:bg-gray-50 transition-all"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 rounded-2xl text-sm font-semibold hover:bg-gray-50 dark:hover:bg-white/10 transition-all"
               >
                 <Settings className="w-4 h-4" />
                 Settings
               </button>
               <button
                 onClick={handleSeedData}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-black/10 text-gray-600 rounded-2xl text-sm font-semibold hover:bg-gray-50 transition-all"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 rounded-2xl text-sm font-semibold hover:bg-gray-50 dark:hover:bg-white/10 transition-all"
               >
                 <Plus className="w-4 h-4" />
                 Seed 20 Entries
-              </button>
-              <button
-                onClick={handleGenerateSummary}
-                disabled={isSummaryLoading}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-semibold shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSummaryLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <BarChart3 className="w-4 h-4" />
-                )}
-                {isSummaryLoading ? 'Generating...' : 'Weekly Summary'}
               </button>
             </div>
           </motion.aside>
@@ -593,13 +638,14 @@ export default function App() {
       </AnimatePresence>
 
       {/* ── Main Content ─────────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col bg-white relative overflow-hidden">
+      <main className="flex-1 flex flex-col bg-white dark:bg-[#0C0C0C] relative overflow-hidden transition-colors">
         {/* Header */}
-        <header className="h-16 border-b border-black/5 flex items-center justify-between px-6">
+        <header className="h-16 border-b border-black/5 dark:border-white/5 flex items-center justify-between px-6">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors text-gray-500"
+              aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
               {isSidebarOpen ? (
                 <ChevronLeft className="w-5 h-5" />
@@ -629,7 +675,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsChatOpen(true)}
-              className="flex items-center gap-2 px-4 py-1.5 bg-white border border-black/5 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-1.5 bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
             >
               <MessageCircle className="w-4 h-4 text-emerald-600" />
               Companion
@@ -637,7 +683,7 @@ export default function App() {
             <button
               onClick={handleGenerateSummary}
               disabled={isSummaryLoading}
-              className="flex items-center gap-2 px-4 py-1.5 bg-white border border-black/5 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-1.5 bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSummaryLoading ? (
                 <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
@@ -651,7 +697,7 @@ export default function App() {
               <>
                 <button
                   onClick={handleSave}
-                  className="flex items-center gap-2 px-4 py-1.5 bg-white border border-black/5 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-4 py-1.5 bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
                 >
                   {isSaving ? (
                     <>
@@ -679,7 +725,8 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => deleteEntry(selectedEntry.id)}
-                  className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
+                  className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
+                  aria-label="Delete entry"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
@@ -701,8 +748,8 @@ export default function App() {
                       onClick={() => updateEntry(selectedEntry.id, { mood: mood.label })}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                         selectedEntry.mood === mood.label
-                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                          : 'bg-gray-50 text-gray-500 border border-transparent hover:bg-gray-100'
+                          ? `bg-white dark:bg-[#1A1A1A] ${mood.color} border-2 ${mood.border} shadow-sm scale-105`
+                          : 'bg-gray-50 dark:bg-white/5 text-gray-500 border border-transparent hover:bg-gray-100 dark:hover:bg-white/10'
                       }`}
                     >
                       <span>{mood.emoji}</span>
@@ -748,9 +795,16 @@ export default function App() {
                 </div>
 
                 {/* Rich-text editor card */}
-                <div className="bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-black/[0.02] overflow-hidden">
+                <div className={`bg-white dark:bg-[#1A1A1A] rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-2 ${
+                  selectedEntry.mood
+                    ? MOODS.find(m => m.label === selectedEntry.mood)?.border + ' dark:border-white/20'
+                    : 'border-black/[0.02] dark:border-white/10'
+                } overflow-hidden ${
+                  settings.fontSize === 'small' ? 'text-sm' :
+                  settings.fontSize === 'large' ? 'text-xl' : 'text-base'
+                }`}>
                   {/* Toolbar */}
-                  <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b-[0.5px] border-black/10 px-4 py-2 flex items-center gap-1 flex-wrap">
+                  <div className="sticky top-0 z-10 bg-white/80 dark:bg-[#1A1A1A]/80 backdrop-blur-md border-b-[0.5px] border-black/10 dark:border-white/10 px-4 py-2 flex items-center gap-1 flex-wrap">
                     {/* Undo / Redo */}
                     <div className="flex items-center gap-0.5">
                       <button
@@ -1079,6 +1133,7 @@ export default function App() {
                 <button
                   onClick={() => setIsChatOpen(false)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close companion"
                 >
                   <X className="w-5 h-5 text-gray-400" />
                 </button>
@@ -1222,6 +1277,7 @@ export default function App() {
                 <button
                   onClick={() => setIsSummaryOpen(false)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close summary"
                 >
                   <X className="w-6 h-6 text-gray-400" />
                 </button>
@@ -1351,6 +1407,7 @@ export default function App() {
                 <button
                   onClick={() => setShowSettings(false)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close settings"
                 >
                   <X className="w-6 h-6 text-gray-400" />
                 </button>
@@ -1363,13 +1420,14 @@ export default function App() {
                   </h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Font Size</span>
+                      <label htmlFor="fontSize" className="text-sm font-medium text-gray-700 dark:text-gray-300">Font Size</label>
                       <select
+                        id="fontSize"
                         value={settings.fontSize}
                         onChange={e =>
                           setSettings(prev => ({ ...prev, fontSize: e.target.value }))
                         }
-                        className="text-sm bg-gray-50 border border-black/5 rounded-lg px-3 py-1.5 focus:outline-none"
+                        className="text-sm bg-gray-50 dark:bg-white/5 border border-black/5 dark:border-white/10 dark:text-gray-300 rounded-lg px-3 py-1.5 focus:outline-none"
                       >
                         <option value="small">Small</option>
                         <option value="medium">Medium</option>
@@ -1377,11 +1435,12 @@ export default function App() {
                       </select>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Theme</span>
+                      <label htmlFor="theme" className="text-sm font-medium text-gray-700 dark:text-gray-300">Theme</label>
                       <select
+                        id="theme"
                         value={settings.theme}
                         onChange={e => setSettings(prev => ({ ...prev, theme: e.target.value }))}
-                        className="text-sm bg-gray-50 border border-black/5 rounded-lg px-3 py-1.5 focus:outline-none"
+                        className="text-sm bg-gray-50 dark:bg-white/5 border border-black/5 dark:border-white/10 dark:text-gray-300 rounded-lg px-3 py-1.5 focus:outline-none"
                       >
                         <option value="light">Light</option>
                         <option value="dark">Dark</option>
