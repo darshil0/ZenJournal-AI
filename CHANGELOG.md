@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.1.0] — 2026-03-18
+
+### Added
+- **Mood-Driven UI Themes** — the editor's appearance now dynamically adapts to the selected mood, with custom border colors and subtle background tints (e.g., orange for Joyful, emerald for Calm, rose for Overwhelmed).
+- **Full Dark Mode Support** — implemented comprehensive dark mode using Tailwind `dark:` variants across all components, including modals, sidebars, and the rich-text editor.
+- **Settings Persistence** — user preferences for font size and theme are now saved to `localStorage` and persist across sessions.
+- **Accessibility Enhancements** — added ARIA labels to all icon-only buttons (New Entry, Settings, Sidebar toggle) and ensured all settings inputs have associated semantic `<label>` elements.
+- **Improved AI Service Reliability** — integrated `responseSchema` into Gemini API calls for structured outputs, ensuring consistent and valid JSON responses from the model.
+- **Automated Verification Suite** — added a Playwright-based visual regression and functional verification script for search, themes, and UI states.
+- **Technical Documentation** — authored `Skills.MD` documenting architectural decisions and `FEATURES.md` with a future product roadmap.
+
+### Fixed
+- **Search accuracy** — search now ignores HTML tags (e.g., `<p>`, `<strong>`) within the journal content, preventing markup from triggering false positives or cluttering search results.
+- **"Last 7 Days" filter** — corrected the date logic to include the full range of the last 7 calendar days including the current day.
+- **Debounced Autosave** — implemented a more efficient 1-second debounced save to `localStorage` with a `useRef`-based cleanup to ensure the latest changes are flushed on unmount without redundant intermediate writes.
+- **UI Error Handling** — replaced generic `alert()` calls with specific error feedback in the chat and modal states when AI services fail.
+- **CSS Import Order** — resolved a build-time warning by moving `@import` statements to the top of `index.css`.
+
+### Changed
+- **Typography** — integrated Inter and Cormorant Garamond fonts for a more polished, "journal-like" aesthetic.
+
+---
+
 ## [1.0.1] — 2026-03-13
 
 ### Fixed
