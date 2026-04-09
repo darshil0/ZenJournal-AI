@@ -136,7 +136,7 @@ export default function App() {
     return entries.find(e => e.id === selectedId);
   }, [entries, selectedId]);
 
-  // Sync editor content when selected entry changes - FIX CURSOR JUMP
+  // Sync editor content when selected entry changes
   useEffect(() => {
     if (editor && selectedEntry) {
       const currentContent = editor.getHTML();
@@ -194,7 +194,7 @@ export default function App() {
     if (entries.length === 0) return 0;
 
     const dates = entries
-      .map(e => new Date(e.journaledAt).toLocaleDateString('en-CA')) // YYYY-MM-DD
+      .map(e => new Date(e.journaledAt).toLocaleDateString('en-CA'))
       .filter((v, i, a) => a.indexOf(v) === i)
       .sort((a, b) => b.localeCompare(a));
 
@@ -326,6 +326,13 @@ export default function App() {
       setChatMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Chat error", error);
+      const errorMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: 'I encountered an error processing your message. Please try again.',
+        timestamp: new Date().toISOString()
+      };
+      setChatMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsChatLoading(false);
     }
@@ -339,6 +346,7 @@ export default function App() {
       setWeeklySummary(summary);
     } catch (error) {
       console.error("Summary error", error);
+      alert("Failed to generate summary. Please try again.");
     } finally {
       setIsSummaryLoading(false);
     }
@@ -769,7 +777,7 @@ export default function App() {
                 </div>
                 
                 <div className="bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-black/[0.02] overflow-hidden">
-                  <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b-[0.5px] border-black/10 px-4 py-2 flex items-center gap-1">
+                  <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b-[0.5px] border-black/10 px-4 py-2 flex items-center gap-1 flex-wrap">
                     <div className="flex items-center gap-0.5">
                       <button
                         onClick={() => editor?.chain().focus().undo().run()}
@@ -793,18 +801,21 @@ export default function App() {
                       <button
                         onClick={() => editor?.chain().focus().toggleBold().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('bold') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Bold (Ctrl+B)"
                       >
                         <Bold className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleItalic().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('italic') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Italic (Ctrl+I)"
                       >
                         <Italic className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleUnderline().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('underline') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Underline (Ctrl+U)"
                       >
                         <UnderlineIcon className="w-4 h-4" />
                       </button>
@@ -814,18 +825,21 @@ export default function App() {
                       <button
                         onClick={() => editor?.chain().focus().toggleBulletList().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('bulletList') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Bullet List"
                       >
                         <List className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleOrderedList().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('orderedList') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Ordered List"
                       >
                         <ListOrdered className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleTaskList().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('taskList') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Task List"
                       >
                         <CheckSquare className="w-4 h-4" />
                       </button>
@@ -835,57 +849,16 @@ export default function App() {
                       <button
                         onClick={setLink}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('link') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Add Link"
                       >
                         <LinkIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={addImage}
                         className="p-2 rounded-lg transition-colors text-gray-400 hover:text-gray-900 hover:bg-gray-50"
+                        title="Add Image"
                       >
                         <ImageIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                    
-                    <div className="w-px h-4 bg-black/5 mx-1" />
-                    
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => editor?.chain().focus().toggleBold().run()}
-                        className={`p-2 rounded-lg transition-all ${
-                          editor?.isActive('bold') 
-                            ? 'bg-emerald-50 text-emerald-600' 
-                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
-                        }`}
-                        title="Bold (Ctrl+B)"
-                      >
-                        <Bold className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => editor?.chain().focus().toggleItalic().run()}
-                        className={`p-2 rounded-lg transition-all ${
-                          editor?.isActive('italic') 
-                            ? 'bg-emerald-50 text-emerald-600' 
-                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
-                        }`}
-                        title="Italic (Ctrl+I)"
-                      >
-                        <Italic className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="w-px h-4 bg-black/5 mx-1" />
-
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => editor?.chain().focus().toggleBulletList().run()}
-                        className={`p-2 rounded-lg transition-all ${
-                          editor?.isActive('bulletList') 
-                            ? 'bg-emerald-50 text-emerald-600' 
-                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
-                        }`}
-                        title="Bullet List"
-                      >
-                        <List className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -951,18 +924,6 @@ export default function App() {
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-widest">Summary</h4>
-                            <button 
-                              onClick={() => handleCopyPrompt(selectedEntry.insight || '')}
-                              className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
-                                copied ? 'text-emerald-600 bg-emerald-100' : 'text-emerald-600/40 hover:text-emerald-600 hover:bg-emerald-50'
-                              }`}
-                              title="Copy AI JSON"
-                            >
-                              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                              <span className="text-[9px] font-bold uppercase tracking-wider">
-                                {copied ? 'Copied' : 'Copy JSON'}
-                              </span>
-                            </button>
                           </div>
                           <p className="text-emerald-900/80 leading-relaxed italic">
                             "{parsedInsight.entry_summary}"
@@ -1421,7 +1382,7 @@ export default function App() {
 
               <div className="p-8 bg-gray-50 border-t border-black/5">
                 <p className="text-[10px] text-center text-gray-400 leading-relaxed">
-                  ZenJournal AI stores your data locally in your browser.<br />
+                  ZenJournal AI stores your data locally in your browser.
                   Export regularly to keep your reflections safe.
                 </p>
               </div>
