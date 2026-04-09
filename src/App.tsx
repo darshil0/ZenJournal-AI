@@ -75,7 +75,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [tagInput, setTagInput] = useState('');
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showJsonPreview, setShowJsonPreview] = useState(false);
@@ -174,7 +174,7 @@ export default function App() {
       .filter(e => {
         const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                              e.content.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesTag = !selectedTag || e.tags.includes(selectedTag);
+        const matchesTag = selectedTags.length === 0 || selectedTags.every(tag => e.tags.includes(tag));
         
         let matchesDate = true;
         if (dateRange.start && dateRange.end) {
@@ -188,7 +188,7 @@ export default function App() {
         return matchesSearch && matchesTag && matchesDate;
       })
       .sort((a, b) => new Date(b.journaledAt).getTime() - new Date(a.journaledAt).getTime());
-  }, [entries, searchQuery, selectedTag, dateRange]);
+  }, [entries, searchQuery, selectedTags, dateRange]);
 
   const streak = useMemo(() => {
     if (entries.length === 0) return 0;
@@ -487,9 +487,9 @@ export default function App() {
               {allTags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   <button
-                    onClick={() => setSelectedTag(null)}
+                    onClick={() => setSelectedTags([])}
                     className={`px-2 py-1 rounded-md text-[10px] font-medium transition-all ${
-                      selectedTag === null
+                      selectedTags.length === 0
                         ? 'bg-emerald-600 text-white shadow-sm'
                         : 'bg-white/50 text-gray-500 hover:bg-white'
                     }`}
@@ -499,9 +499,15 @@ export default function App() {
                   {allTags.map(tag => (
                     <button
                       key={tag}
-                      onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                      onClick={() => {
+                        setSelectedTags(prev => 
+                          prev.includes(tag) 
+                            ? prev.filter(t => t !== tag) 
+                            : [...prev, tag]
+                        );
+                      }}
                       className={`px-2 py-1 rounded-md text-[10px] font-medium transition-all ${
-                        selectedTag === tag
+                        selectedTags.includes(tag)
                           ? 'bg-emerald-600 text-white shadow-sm'
                           : 'bg-white/50 text-gray-500 hover:bg-white'
                       }`}
@@ -542,9 +548,16 @@ export default function App() {
                   {entry.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {entry.tags.slice(0, 3).map(tag => (
-                        <span key={tag} className="text-[9px] px-1.5 py-0.5 bg-black/5 text-gray-500 rounded-md">
+                        <button 
+                          key={tag} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTags(prev => prev.includes(tag) ? prev : [...prev, tag]);
+                          }}
+                          className="text-[9px] px-1.5 py-0.5 bg-black/5 text-gray-500 rounded-md hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                        >
                           #{tag}
-                        </span>
+                        </button>
                       ))}
                       {entry.tags.length > 3 && (
                         <span className="text-[9px] text-gray-400">+{entry.tags.length - 3}</span>
@@ -737,6 +750,14 @@ export default function App() {
                       </button>
                     </span>
                   ))}
+                  {selectedEntry.tags.length > 0 && (
+                    <button 
+                      onClick={() => updateEntry(selectedEntry.id, { tags: [] })}
+                      className="text-[10px] text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  )}
                   <input 
                     type="text"
                     value={tagInput}
