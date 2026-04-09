@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.1] - 2026-04-09
 
 ### Fixed
+- **Critical:** Fixed GitHub Pages auto-deployment and CI/CD pipeline issues
 - **Critical:** Removed duplicate toolbar buttons (Bold, Italic, Bullet List) in editor
 - **Critical:** Incomplete chat error handling - Added try-catch wrapper with user-friendly error messages
 - **High:** Missing summary generation error handling - Added comprehensive try-catch with finally block
