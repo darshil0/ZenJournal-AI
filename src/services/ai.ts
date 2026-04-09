@@ -1,15 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIInsight, ChatMessage, WeeklySummary, JournalEntry } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function generateJournalInsight(content: string): Promise<AIInsight> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY environment variable is not set");
-  }
-
-  const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-  
   const systemInstruction = `You are ZenJournal AI — a warm, emotionally intelligent journaling companion. 
 Your goal is to help users reflect, process emotions, and grow through mindful writing. 
 You are gentle, curious, and non-judgmental.
@@ -38,13 +32,11 @@ Output the result in the following JSON format:
 }`;
 
   try {
-    const response = await model.generateContent({
-      contents: [{
-        role: "user" as const,
-        parts: [{ text: `Analyze this journal entry: "${content}"` }]
-      }],
-      systemInstruction,
-      generationConfig: {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Analyze this journal entry: "${content}"`,
+      config: {
+        systemInstruction,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -72,17 +64,11 @@ Output the result in the following JSON format:
       }
     });
 
-    const result = response.response;
-    if (!result || !result.text) {
+    if (!response.text) {
       throw new Error("No response from AI");
     }
 
-    try {
-      return JSON.parse(result.text) as AIInsight;
-    } catch (e) {
-      console.error("Failed to parse AI response", e);
-      throw new Error("Failed to parse insight response");
-    }
+    return JSON.parse(response.text) as AIInsight;
   } catch (error) {
     console.error("Error generating journal insight:", error);
     throw error;
@@ -90,12 +76,6 @@ Output the result in the following JSON format:
 }
 
 export async function chatWithAI(messages: ChatMessage[]): Promise<string> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY environment variable is not set");
-  }
-
-  const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-
   const systemInstruction = `You are ZenJournal AI — a warm, emotionally intelligent journaling companion. 
 You speak like a thoughtful, caring friend.
 
@@ -116,19 +96,21 @@ If JOYFUL, celebrate with them.
 If SAD, create space and validate.`;
   
   try {
-    // Convert messages to content arrays
+    // Convert messages to content arrays for stateless generateContent call
     const contents = messages.map(msg => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
-    })) as any;
+    }));
 
-    const response = await model.generateContent({
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
       contents,
-      systemInstruction,
+      config: {
+        systemInstruction,
+      }
     });
 
-    const result = response.response;
-    return result.text || "I'm here to listen. What's on your mind?";
+    return response.text || "I'm here to listen. What's on your mind?";
   } catch (error) {
     console.error("Error in chat:", error);
     throw error;
@@ -136,12 +118,6 @@ If SAD, create space and validate.`;
 }
 
 export async function generateWeeklySummary(entries: JournalEntry[]): Promise<WeeklySummary> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY environment variable is not set");
-  }
-
-  const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-  
   // Filter entries from the past 7 days
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const weekEntries = entries.filter(e => new Date(e.journaledAt) >= sevenDaysAgo);
@@ -168,13 +144,11 @@ export async function generateWeeklySummary(entries: JournalEntry[]): Promise<We
 Output must be valid JSON only.`;
 
   try {
-    const response = await model.generateContent({
-      contents: [{
-        role: "user" as const,
-        parts: [{ text: `Analyze these journal entries from the past week and generate a summary: ${JSON.stringify(weekEntries)}` }]
-      }],
-      systemInstruction,
-      generationConfig: {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Analyze these journal entries from the past week and generate a summary: ${JSON.stringify(weekEntries)}`,
+      config: {
+        systemInstruction,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -197,17 +171,11 @@ Output must be valid JSON only.`;
       }
     });
 
-    const result = response.response;
-    if (!result || !result.text) {
+    if (!response.text) {
       throw new Error("No response from AI");
     }
 
-    try {
-      return JSON.parse(result.text) as WeeklySummary;
-    } catch (e) {
-      console.error("Failed to parse weekly summary", e);
-      throw new Error("Failed to parse weekly summary response");
-    }
+    return JSON.parse(response.text) as WeeklySummary;
   } catch (error) {
     console.error("Error generating weekly summary:", error);
     throw error;
