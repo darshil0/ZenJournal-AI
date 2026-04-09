@@ -41,7 +41,8 @@ import {
   ArrowUpRight,
   Flame,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Info
 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -100,6 +101,11 @@ export default function App() {
   const [weeklySummary, setWeeklySummary] = useState<WeeklySummary | null>(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
 
+  const selectedIdRef = React.useRef(selectedId);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const editor = useEditor({
@@ -123,10 +129,11 @@ export default function App() {
     content: '',
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      if (selectedId) {
+      const currentId = selectedIdRef.current;
+      if (currentId) {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(() => {
-          setEntries(prev => prev.map(e => e.id === selectedId ? { ...e, content: html, updatedAt: new Date().toISOString() } : e));
+          setEntries(prev => prev.map(e => e.id === currentId ? { ...e, content: html, updatedAt: new Date().toISOString() } : e));
         }, 500);
       }
     },
@@ -136,7 +143,7 @@ export default function App() {
     return entries.find(e => e.id === selectedId);
   }, [entries, selectedId]);
 
-  // Sync editor content when selected entry changes
+  // Sync editor content when selected entry changes - FIX CURSOR JUMP
   useEffect(() => {
     if (editor && selectedEntry) {
       const currentContent = editor.getHTML();
@@ -144,7 +151,7 @@ export default function App() {
         editor.commands.setContent(selectedEntry.content, { emitUpdate: false });
       }
     }
-  }, [selectedId, editor]);
+  }, [selectedId, editor, selectedEntry?.content]);
 
   // Load entries from local storage
   useEffect(() => {
@@ -170,10 +177,54 @@ export default function App() {
   }, [entries]);
 
   const filteredEntries = useMemo(() => {
+    const parseSearchQuery = (query: string) => {
+      const terms = {
+        include: [] as string[],
+        exclude: [] as string[],
+        exact: [] as string[],
+        excludeTags: [] as string[],
+        includeTags: [] as string[],
+      };
+
+      // Match exact phrases in quotes
+      const exactMatches = query.match(/"([^"]+)"/g);
+      if (exactMatches) {
+        exactMatches.forEach(m => {
+          terms.exact.push(m.replace(/"/g, '').toLowerCase());
+          query = query.replace(m, '');
+        });
+      }
+
+      // Split remaining query by spaces
+      const parts = query.split(/\s+/).filter(Boolean);
+      parts.forEach(part => {
+        if (part.startsWith('-#')) {
+          terms.excludeTags.push(part.slice(2).toLowerCase());
+        } else if (part.startsWith('-')) {
+          terms.exclude.push(part.slice(1).toLowerCase());
+        } else if (part.startsWith('#')) {
+          terms.includeTags.push(part.slice(1).toLowerCase());
+        } else {
+          terms.include.push(part.toLowerCase());
+        }
+      });
+
+      return terms;
+    };
+
+    const searchTerms = parseSearchQuery(searchQuery);
+
     return entries
       .filter(e => {
-        const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             e.content.toLowerCase().includes(searchQuery.toLowerCase());
+        const fullContent = (e.title + ' ' + e.content).toLowerCase();
+        
+        const matchesExact = searchTerms.exact.every(phrase => fullContent.includes(phrase));
+        const matchesInclude = searchTerms.include.every(word => fullContent.includes(word));
+        const matchesExclude = searchTerms.exclude.length === 0 || !searchTerms.exclude.some(word => fullContent.includes(word));
+        const matchesIncludeTagsSearch = searchTerms.includeTags.every(tag => e.tags.includes(tag));
+        const matchesExcludeTags = searchTerms.excludeTags.length === 0 || !searchTerms.excludeTags.some(tag => e.tags.includes(tag));
+        
+        const matchesSearch = matchesExact && matchesInclude && matchesExclude && matchesIncludeTagsSearch && matchesExcludeTags;
         const matchesTag = selectedTags.length === 0 || selectedTags.every(tag => e.tags.includes(tag));
         
         let matchesDate = true;
@@ -194,7 +245,7 @@ export default function App() {
     if (entries.length === 0) return 0;
 
     const dates = entries
-      .map(e => new Date(e.journaledAt).toLocaleDateString('en-CA'))
+      .map(e => new Date(e.journaledAt).toLocaleDateString('en-CA')) // YYYY-MM-DD
       .filter((v, i, a) => a.indexOf(v) === i)
       .sort((a, b) => b.localeCompare(a));
 
@@ -326,13 +377,6 @@ export default function App() {
       setChatMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Chat error", error);
-      const errorMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: 'I encountered an error processing your message. Please try again.',
-        timestamp: new Date().toISOString()
-      };
-      setChatMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsChatLoading(false);
     }
@@ -346,7 +390,6 @@ export default function App() {
       setWeeklySummary(summary);
     } catch (error) {
       console.error("Summary error", error);
-      alert("Failed to generate summary. Please try again.");
     } finally {
       setIsSummaryLoading(false);
     }
@@ -431,15 +474,41 @@ export default function App() {
 
             <div className="px-6 mb-4 space-y-3">
               <div className="flex gap-2">
-                <div className="relative flex-1">
+                <div className="relative flex-1 group">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input 
                     type="text" 
                     placeholder="Search reflections..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-white/50 border border-black/5 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+                    className="w-full pl-10 pr-8 py-2 bg-white/50 border border-black/5 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
                   />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <div className="relative">
+                      <Info className="w-3.5 h-3.5 text-gray-300 hover:text-emerald-500 cursor-help transition-colors peer" />
+                      <div className="absolute right-0 top-full mt-2 w-48 p-3 bg-white rounded-xl shadow-xl border border-black/5 opacity-0 invisible peer-hover:opacity-100 peer-hover:visible transition-all z-[100] pointer-events-none">
+                        <p className="text-[10px] font-bold text-gray-900 uppercase tracking-widest mb-2">Search Tips</p>
+                        <ul className="space-y-1.5 text-[10px] text-gray-500">
+                          <li className="flex gap-2">
+                            <span className="font-mono text-emerald-600">"phrase"</span>
+                            <span>Exact match</span>
+                          </li>
+                          <li className="flex gap-2">
+                            <span className="font-mono text-emerald-600">-word</span>
+                            <span>Exclude word</span>
+                          </li>
+                          <li className="flex gap-2">
+                            <span className="font-mono text-emerald-600">#tag</span>
+                            <span>Include tag</span>
+                          </li>
+                          <li className="flex gap-2">
+                            <span className="font-mono text-emerald-600">-#tag</span>
+                            <span>Exclude tag</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -777,7 +846,7 @@ export default function App() {
                 </div>
                 
                 <div className="bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-black/[0.02] overflow-hidden">
-                  <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b-[0.5px] border-black/10 px-4 py-2 flex items-center gap-1 flex-wrap">
+                  <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b-[0.5px] border-black/10 px-4 py-2 flex items-center gap-1">
                     <div className="flex items-center gap-0.5">
                       <button
                         onClick={() => editor?.chain().focus().undo().run()}
@@ -801,21 +870,18 @@ export default function App() {
                       <button
                         onClick={() => editor?.chain().focus().toggleBold().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('bold') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
-                        title="Bold (Ctrl+B)"
                       >
                         <Bold className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleItalic().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('italic') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
-                        title="Italic (Ctrl+I)"
                       >
                         <Italic className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleUnderline().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('underline') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
-                        title="Underline (Ctrl+U)"
                       >
                         <UnderlineIcon className="w-4 h-4" />
                       </button>
@@ -825,21 +891,18 @@ export default function App() {
                       <button
                         onClick={() => editor?.chain().focus().toggleBulletList().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('bulletList') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
-                        title="Bullet List"
                       >
                         <List className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleOrderedList().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('orderedList') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
-                        title="Ordered List"
                       >
                         <ListOrdered className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleTaskList().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('taskList') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
-                        title="Task List"
                       >
                         <CheckSquare className="w-4 h-4" />
                       </button>
@@ -849,16 +912,57 @@ export default function App() {
                       <button
                         onClick={setLink}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('link') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
-                        title="Add Link"
                       >
                         <LinkIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={addImage}
                         className="p-2 rounded-lg transition-colors text-gray-400 hover:text-gray-900 hover:bg-gray-50"
-                        title="Add Image"
                       >
                         <ImageIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="w-px h-4 bg-black/5 mx-1" />
+                    
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        onClick={() => editor?.chain().focus().toggleBold().run()}
+                        className={`p-2 rounded-lg transition-all ${
+                          editor?.isActive('bold') 
+                            ? 'bg-emerald-50 text-emerald-600' 
+                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
+                        }`}
+                        title="Bold (Ctrl+B)"
+                      >
+                        <Bold className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => editor?.chain().focus().toggleItalic().run()}
+                        className={`p-2 rounded-lg transition-all ${
+                          editor?.isActive('italic') 
+                            ? 'bg-emerald-50 text-emerald-600' 
+                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
+                        }`}
+                        title="Italic (Ctrl+I)"
+                      >
+                        <Italic className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="w-px h-4 bg-black/5 mx-1" />
+
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                        className={`p-2 rounded-lg transition-all ${
+                          editor?.isActive('bulletList') 
+                            ? 'bg-emerald-50 text-emerald-600' 
+                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
+                        }`}
+                        title="Bullet List"
+                      >
+                        <List className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -924,6 +1028,18 @@ export default function App() {
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-widest">Summary</h4>
+                            <button 
+                              onClick={() => handleCopyPrompt(selectedEntry.insight || '')}
+                              className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
+                                copied ? 'text-emerald-600 bg-emerald-100' : 'text-emerald-600/40 hover:text-emerald-600 hover:bg-emerald-50'
+                              }`}
+                              title="Copy AI JSON"
+                            >
+                              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                              <span className="text-[9px] font-bold uppercase tracking-wider">
+                                {copied ? 'Copied' : 'Copy JSON'}
+                              </span>
+                            </button>
                           </div>
                           <p className="text-emerald-900/80 leading-relaxed italic">
                             "{parsedInsight.entry_summary}"
@@ -1382,7 +1498,7 @@ export default function App() {
 
               <div className="p-8 bg-gray-50 border-t border-black/5">
                 <p className="text-[10px] text-center text-gray-400 leading-relaxed">
-                  ZenJournal AI stores your data locally in your browser.
+                  ZenJournal AI stores your data locally in your browser.<br />
                   Export regularly to keep your reflections safe.
                 </p>
               </div>
