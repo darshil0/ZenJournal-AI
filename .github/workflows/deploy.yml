@@ -36,6 +36,8 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          VITE_BASE_PATH: /ZenJournal-AI/
         run: npm run build
 
       - name: Upload artifact
