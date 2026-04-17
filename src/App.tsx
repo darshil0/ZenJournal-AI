@@ -68,6 +68,13 @@ const MOODS = [
   { label: 'Overwhelmed', emoji: '🤯' },
 ];
 
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+};
+
 function HighlightText({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>;
 
@@ -174,12 +181,12 @@ export default function App() {
     content: '',
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      const currentId = selectedIdRef.current;
-      if (currentId) {
+      const targetId = selectedIdRef.current;
+      if (targetId) {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(() => {
           setEntries(prev => prev.map(e => {
-            if (e.id === currentId) {
+            if (e.id === targetId) {
               const now = new Date().toISOString();
               const history = e.history || [];
 
@@ -194,7 +201,7 @@ export default function App() {
             }
             return e;
           }));
-        }, 500);
+        }, 1000);
       }
     },
   });
@@ -205,6 +212,12 @@ export default function App() {
 
   // Sync editor content when selected entry changes
   useEffect(() => {
+    // Clear pending saves when switching entries
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
     if (editor && selectedEntry) {
       const currentContent = editor.getHTML();
       if (currentContent !== selectedEntry.content) {
@@ -387,7 +400,7 @@ export default function App() {
   const createNewEntry = useCallback(() => {
     const now = new Date().toISOString();
     const newEntry: JournalEntry = {
-      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
+      id: generateId(),
       createdAt: now,
       updatedAt: now,
       journaledAt: now,
@@ -411,17 +424,33 @@ export default function App() {
   }, []);
 
   const handleSave = useCallback(() => {
-    setSelectedId(prev => {
-      if (!prev) return prev;
-      setIsSaving(true);
-      // updateEntry is stable via useCallback, use functional update pattern
-      setEntries(prevEntries => prevEntries.map(e =>
-        e.id === prev ? { ...e, updatedAt: new Date().toISOString() } : e
-      ));
-      setTimeout(() => setIsSaving(false), 2000);
-      return prev;
-    });
-  }, []);
+    const currentId = selectedIdRef.current;
+    if (!currentId || !editor) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    setIsSaving(true);
+    const html = editor.getHTML();
+
+    setEntries(prev => prev.map(e => {
+      if (e.id === currentId) {
+        const now = new Date().toISOString();
+        const history = e.history || [];
+        const lastHistory = history[0];
+        const shouldAddHistory = !lastHistory || (new Date(now).getTime() - new Date(lastHistory.timestamp).getTime() > 60000);
+        const newHistory = shouldAddHistory
+          ? [{ timestamp: now, content: e.content, title: e.title }, ...history].slice(0, 10)
+          : history;
+        return { ...e, content: html, updatedAt: now, history: newHistory };
+      }
+      return e;
+    }));
+
+    setTimeout(() => setIsSaving(false), 1000);
+  }, [editor]);
 
   // FIX #6: Keyboard shortcuts now reference stable callbacks — no stale closure issues
   useEffect(() => {
@@ -503,7 +532,7 @@ export default function App() {
     if (!chatInput.trim() || isChatLoading) return;
 
     const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: 'user',
       content: chatInput,
       timestamp: new Date().toISOString()
@@ -516,7 +545,7 @@ export default function App() {
     try {
       const response = await chatWithAI([...chatMessages, userMessage], settings.aiTone);
       const assistantMessage: ChatMessage = {
-        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
+        id: generateId(),
         role: 'assistant',
         content: response,
         timestamp: new Date().toISOString()
@@ -543,7 +572,8 @@ export default function App() {
   };
 
   const handleGenerateInsight = async () => {
-    if (!selectedEntry || !selectedEntry.content.trim() || isGenerating) return;
+    const contentText = editor?.getText() || '';
+    if (!selectedEntry || !contentText.trim() || isGenerating) return;
 
     setIsGenerating(true);
     try {
@@ -592,6 +622,15 @@ export default function App() {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Cleanup pending saves on unmount or before switching
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, []);
 
   return (
@@ -1588,7 +1627,9 @@ export default function App() {
                       <div className="p-6 bg-gray-50 rounded-3xl border border-black/5">
                         <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Top Mood</p>
                         <div className="flex items-center gap-2">
-                          <span className="text-2xl font-light">{weeklySummary.topMood}</span>
+                          <span className="text-2xl font-light">
+                            {MOODS.find(m => m.label === weeklySummary.topMood)?.emoji} {weeklySummary.topMood}
+                          </span>
                         </div>
                       </div>
                       <div className="p-6 bg-gray-50 rounded-3xl border border-black/5">
@@ -1607,7 +1648,9 @@ export default function App() {
                         {Object.entries(weeklySummary.moodDistribution).map(([mood, count]) => (
                           <div key={mood} className="space-y-1">
                             <div className="flex justify-between text-xs font-medium">
-                              <span className="text-gray-700">{mood}</span>
+                              <span className="text-gray-700">
+                                {MOODS.find(m => m.label === mood)?.emoji} {mood}
+                              </span>
                               <span className="text-gray-400">{count} sessions</span>
                             </div>
                             <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">

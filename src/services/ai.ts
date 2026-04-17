@@ -11,6 +11,10 @@ const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
 // FIX #1: Corrected model name from invalid "gemini-3-flash-preview" to "gemini-2.0-flash"
 const MODEL = "gemini-2.0-flash";
 
+const stripHtml = (html: string) => {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
 export async function generateJournalInsight(content: string): Promise<AIInsight> {
   const systemInstruction = `You are ZenJournal AI — a warm, emotionally intelligent journaling companion. 
 Your goal is to help users reflect, process emotions, and grow through mindful writing. 
@@ -40,9 +44,10 @@ Output the result in the following JSON format:
 }`;
 
   try {
+    const plainText = stripHtml(content);
     const response = await ai.models.generateContent({
       model: MODEL,
-      contents: `Analyze this journal entry: "${content}"`,
+      contents: `Analyze this journal entry: "${plainText}"`,
       config: {
         systemInstruction,
         responseMimeType: "application/json",
@@ -97,7 +102,7 @@ Keep the prompt under 30 words.`;
     // FIX #2: Strip heavy fields (history, insight) before sending to AI to reduce payload size
     const recentEntries = entries.slice(0, 5).map(e => ({
       title: e.title,
-      content: e.content.replace(/<[^>]*>/g, ' '),
+      content: stripHtml(e.content).slice(0, 500),
       date: e.journaledAt,
       mood: e.mood,
       tags: e.tags,
@@ -210,7 +215,7 @@ Output must be valid JSON only.`;
     // FIX #3: Strip heavy fields (history, raw insight JSON) before sending to AI to avoid token bloat
     const strippedEntries = weekEntries.map(e => ({
       title: e.title,
-      content: e.content.replace(/<[^>]*>/g, ' ').slice(0, 500),
+      content: stripHtml(e.content).slice(0, 500),
       mood: e.mood,
       tags: e.tags,
       journaledAt: e.journaledAt,
