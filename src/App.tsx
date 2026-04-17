@@ -387,7 +387,7 @@ export default function App() {
   const createNewEntry = useCallback(() => {
     const now = new Date().toISOString();
     const newEntry: JournalEntry = {
-      id: crypto.randomUUID(),
+      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
       createdAt: now,
       updatedAt: now,
       journaledAt: now,
@@ -516,7 +516,7 @@ export default function App() {
     try {
       const response = await chatWithAI([...chatMessages, userMessage], settings.aiTone);
       const assistantMessage: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
         role: 'assistant',
         content: response,
         timestamp: new Date().toISOString()

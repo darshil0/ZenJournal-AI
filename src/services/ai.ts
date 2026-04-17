@@ -1,7 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIInsight, ChatMessage, WeeklySummary, JournalEntry } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey || apiKey === 'undefined' || apiKey === 'your_api_key_here') {
+  console.warn("GEMINI_API_KEY is missing or invalid. AI features will be disabled.");
+}
+
+const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
 
 // FIX #1: Corrected model name from invalid "gemini-3-flash-preview" to "gemini-2.0-flash"
 const MODEL = "gemini-2.0-flash";

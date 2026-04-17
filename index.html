@@ -6,24 +6,41 @@
     <title>ZenJournal AI</title>
     <script>
       (function() {
-        const settings = JSON.parse(localStorage.getItem('zenjournal_settings') || '{}');
-        const theme = settings.theme || 'system';
-        const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (isDark) document.documentElement.classList.add('dark');
+        window.onerror = function(msg, url, line, col, error) {
+          console.error('Global Error:', msg, 'at', url, ':', line, ':', col, error);
+          const root = document.getElementById('root');
+          if (root && !root.innerHTML) {
+            root.innerHTML = '<div style="padding: 20px; color: red; font-family: sans-serif;"><h1>App failed to load</h1><p>' + msg + '</p></div>';
+          }
+        };
+        window.onunhandledrejection = function(event) {
+          console.error('Unhandled Promise Rejection:', event.reason);
+        };
+        try {
+          const settings = JSON.parse(localStorage.getItem('zenjournal_settings') || '{}');
+          const theme = settings.theme || 'system';
+          const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          console.error('Error initializing theme:', e);
+        }
       })();
     </script>
     <link rel="manifest" href="manifest.json" />
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('sw.js');
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister();
+            console.log('Service Worker unregistered during troubleshooting');
+          }
         });
       }
     </script>
   </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="src/main.tsx"></script>
+  <body style="background: #f0fff0;">
+    <div id="root">Loading ZenJournal AI...</div>
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
 
