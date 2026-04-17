@@ -75,12 +75,51 @@ Output the result in the following JSON format:
   }
 }
 
-export async function chatWithAI(messages: ChatMessage[]): Promise<string> {
+export async function generatePersonalizedPrompt(entries: JournalEntry[]): Promise<string> {
+  if (entries.length === 0) {
+    return "What's on your mind today? Start your journaling journey with a simple reflection.";
+  }
+
+  const systemInstruction = `You are ZenJournal AI. Based on the user's recent journal entries, generate ONE deeply personal, reflective writing prompt for today.
+The prompt should reference recurring themes, emotional patterns, or unresolved thoughts found in the entries.
+Be warm, insightful, and encouraging.
+Keep the prompt under 30 words.`;
+
+  try {
+    const recentEntries = entries.slice(0, 5).map(e => ({
+      title: e.title,
+      content: e.content.replace(/<[^>]*>/g, ' '),
+      date: e.journaledAt
+    }));
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Recent entries: ${JSON.stringify(recentEntries)}`,
+      config: {
+        systemInstruction,
+      }
+    });
+
+    return response.text || "What is a small thing that brought you peace today?";
+  } catch (error) {
+    console.error("Error generating personalized prompt:", error);
+    return "What's one thing you're grateful for in this moment?";
+  }
+}
+
+export async function chatWithAI(messages: ChatMessage[], tone: string = 'warm'): Promise<string> {
+  const tones: Record<string, string> = {
+    warm: "Gentle, warm, curious, and non-judgmental. Speak like a deeply empathetic friend.",
+    clinical: "Analytical, objective, and professional. Focus on behavioral patterns and psychological insights.",
+    poetic: "Metaphorical, lyrical, and evocative. Use imagery and philosophical reflections.",
+    direct: "Concise, straightforward, and practical. Focus on clarity and actionable thoughts."
+  };
+
   const systemInstruction = `You are ZenJournal AI — a deeply empathetic, emotionally intelligent journaling companion. 
 You speak like a thoughtful, caring friend who is fully present, attentive, and deeply attuned to the user's inner world.
 
 CORE PERSONA:
-- Tone: Gentle, warm, curious, and non-judgmental.
+- Tone: ${tones[tone] || tones.warm}
 - Empathy First: Always validate the user's feelings before moving to questions or prompts.
 - Mirroring: Closely match the user's emotional energy, vocabulary complexity, and communication style. 
   - If the user is brief and literal, be concise but warm. 

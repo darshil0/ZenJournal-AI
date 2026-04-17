@@ -1,3 +1,9 @@
+export interface EntryHistory {
+  timestamp: string;
+  content: string;
+  title: string;
+}
+
 export interface JournalEntry {
   id: string;
   createdAt: string;
@@ -8,6 +14,7 @@ export interface JournalEntry {
   insight?: string;
   mood?: string;
   tags: string[];
+  history?: EntryHistory[];
 }
 
 export interface AIInsight {
