@@ -3,6 +3,9 @@ import { AIInsight, ChatMessage, WeeklySummary, JournalEntry } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+// FIX #1: Corrected model name from invalid "gemini-3-flash-preview" to "gemini-2.0-flash"
+const MODEL = "gemini-2.0-flash";
+
 export async function generateJournalInsight(content: string): Promise<AIInsight> {
   const systemInstruction = `You are ZenJournal AI — a warm, emotionally intelligent journaling companion. 
 Your goal is to help users reflect, process emotions, and grow through mindful writing. 
@@ -33,7 +36,7 @@ Output the result in the following JSON format:
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: MODEL,
       contents: `Analyze this journal entry: "${content}"`,
       config: {
         systemInstruction,
@@ -86,14 +89,17 @@ Be warm, insightful, and encouraging.
 Keep the prompt under 30 words.`;
 
   try {
+    // FIX #2: Strip heavy fields (history, insight) before sending to AI to reduce payload size
     const recentEntries = entries.slice(0, 5).map(e => ({
       title: e.title,
       content: e.content.replace(/<[^>]*>/g, ' '),
-      date: e.journaledAt
+      date: e.journaledAt,
+      mood: e.mood,
+      tags: e.tags,
     }));
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: MODEL,
       contents: `Recent entries: ${JSON.stringify(recentEntries)}`,
       config: {
         systemInstruction,
@@ -155,7 +161,7 @@ Constraint: Never diagnose, give medical advice, or tell the user what they "sho
     }));
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: MODEL,
       contents,
       config: {
         systemInstruction,
@@ -196,9 +202,18 @@ export async function generateWeeklySummary(entries: JournalEntry[]): Promise<We
 Output must be valid JSON only.`;
 
   try {
+    // FIX #3: Strip heavy fields (history, raw insight JSON) before sending to AI to avoid token bloat
+    const strippedEntries = weekEntries.map(e => ({
+      title: e.title,
+      content: e.content.replace(/<[^>]*>/g, ' ').slice(0, 500),
+      mood: e.mood,
+      tags: e.tags,
+      journaledAt: e.journaledAt,
+    }));
+
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Analyze these journal entries from the past week and generate a summary: ${JSON.stringify(weekEntries)}`,
+      model: MODEL,
+      contents: `Analyze these journal entries from the past week and generate a summary: ${JSON.stringify(strippedEntries)}`,
       config: {
         systemInstruction,
         responseMimeType: "application/json",
