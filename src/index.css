@@ -20,6 +20,7 @@
   @apply w-full bg-transparent border-none focus:ring-0 resize-none text-lg leading-relaxed placeholder:text-gray-300;
 }
 
+/* FIX #4: Added comprehensive ProseMirror styles for all Tiptap extensions */
 .ProseMirror {
   @apply outline-none min-h-[500px] text-[17px] leading-[1.8] font-editor text-gray-800 dark:text-gray-200;
 }
@@ -28,8 +29,65 @@
   @apply mb-4;
 }
 
+.ProseMirror h1 {
+  @apply text-3xl font-bold mb-4 mt-6 tracking-tight;
+}
+
+.ProseMirror h2 {
+  @apply text-2xl font-semibold mb-3 mt-5 tracking-tight;
+}
+
+.ProseMirror h3 {
+  @apply text-xl font-semibold mb-2 mt-4;
+}
+
 .ProseMirror ul {
-  @apply list-disc ml-6 mb-4;
+  @apply list-disc ml-6 mb-4 space-y-1;
+}
+
+.ProseMirror ol {
+  @apply list-decimal ml-6 mb-4 space-y-1;
+}
+
+.ProseMirror li {
+  @apply leading-relaxed;
+}
+
+/* Task list styles */
+.ProseMirror ul[data-type="taskList"] {
+  @apply list-none ml-0 mb-4 space-y-2;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  @apply flex items-start gap-2;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label {
+  @apply flex items-center gap-2 cursor-pointer;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  @apply w-4 h-4 rounded border-gray-300 text-emerald-600 cursor-pointer mt-1 flex-shrink-0;
+}
+
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  @apply line-through text-gray-400;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-emerald-200 pl-4 italic text-gray-500 my-4;
+}
+
+.ProseMirror code {
+  @apply bg-gray-100 dark:bg-white/10 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.ProseMirror pre {
+  @apply bg-gray-100 dark:bg-white/10 p-4 rounded-xl mb-4 overflow-x-auto;
+}
+
+.ProseMirror pre code {
+  @apply bg-transparent p-0 text-sm;
 }
 
 .ProseMirror strong {
@@ -38,6 +96,22 @@
 
 .ProseMirror em {
   @apply italic;
+}
+
+.ProseMirror u {
+  @apply underline;
+}
+
+.ProseMirror a {
+  @apply text-emerald-600 underline hover:text-emerald-700 cursor-pointer;
+}
+
+.ProseMirror img {
+  @apply max-w-full h-auto rounded-xl my-4;
+}
+
+.ProseMirror hr {
+  @apply border-t border-gray-200 dark:border-white/10 my-6;
 }
 
 .ProseMirror .is-editor-empty:first-child::before {
