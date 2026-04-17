@@ -4,8 +4,14 @@ import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  
+  // Use VITE_BASE_PATH from environment, default to '/' for local dev
+  const basePath = process.env.VITE_BASE_PATH || env.VITE_BASE_PATH || '/';
+  
+  console.log('Building with base path:', basePath);
+  
   return {
-    base: process.env.VITE_BASE_PATH || '/',
+    base: basePath,
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
