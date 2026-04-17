@@ -1,7 +1,17 @@
 # Changelog
 
 All notable changes to ZenJournal AI will be documented in this file.
- 
+
+## [1.1.3] - 2026-04-18
+
+### Fixed
+- **Auto-save Reliability (`src/App.tsx`):** Resolved race conditions where content could be saved to the wrong entry during rapid switching. Auto-save now captures the target entry ID at the start of the debounce period and clears pending timeouts when selecting a new entry.
+- **Data Integrity (`src/App.tsx`):** Implemented a centralized `generateId` helper to ensure consistent and collision-resistant unique identifiers for entries and messages, with a fallback for environments where `crypto.randomUUID` is unavailable.
+- **AI Token Optimization (`src/services/ai.ts`):** Added a `stripHtml` utility to clean journal content before sending it to the Gemini API. All AI requests now use truncated plain-text, significantly reducing token consumption and improving analysis accuracy.
+- **Insight Accuracy (`src/App.tsx`):** Updated the empty-content check in `handleGenerateInsight` to use Tiptap's plain-text output, preventing requests for entries containing only empty HTML tags.
+- **UI/UX Consistency (`src/App.tsx`):** Enhanced the Weekly Summary overlay with mood emojis for better visual glanceability. Corrected the "Last Saved" timestamp to accurately reflect persistence events.
+- **PWA Capabilities (`index.html`):** Restored Service Worker registration and removed conflicting inline body styles that interfered with theme transitions.
+
 ## [1.1.2] - 2026-04-17
  
 ### Fixed
