@@ -22,15 +22,19 @@
           const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           if (isDark) document.documentElement.classList.add('dark');
         } catch (e) {
-          console.error('Error initializing theme:', e);
+          console.error('Error initializing theme:', e, e);
         }
       })();
     </script>
-    <link rel="manifest" href="manifest.json" />
+    <link rel="manifest" href="./manifest.json" />
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('./sw.js').then(function(registration) {
+          // Get the base path from the current URL
+          const basePath = document.querySelector('base')?.getAttribute('href') || './';
+          const swPath = basePath + 'sw.js';
+          
+          navigator.serviceWorker.register(swPath).then(function(registration) {
             console.log('ServiceWorker registration successful with scope: ', registration.scope);
           }, function(err) {
             console.log('ServiceWorker registration failed: ', err);
@@ -44,4 +48,3 @@
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
-
