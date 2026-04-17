@@ -1,8 +1,8 @@
 const CACHE_NAME = 'zenjournal-v1';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
+  './',
+  'index.html',
+  'manifest.json',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap'
 ];
 
