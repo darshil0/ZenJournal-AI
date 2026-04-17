@@ -2,6 +2,14 @@
 
 All notable changes to ZenJournal AI will be documented in this file.
 
+## [1.1.4] - 2026-04-18
+
+### Fixed
+- **GitHub Pages Deployment (`.github/workflows/deploy.yml`, `vite.config.ts`):** Resolved blank screen issue on GitHub Pages by adding `VITE_BASE_PATH` environment variable to the build workflow. The application now correctly builds for subdirectory deployment at `/ZenJournal-AI/` instead of assuming root path.
+- **Service Worker Path Handling (`public/sw.js`):** Updated service worker to dynamically detect the base path from its location, ensuring asset caching works correctly in both local development (root path) and production deployment (subdirectory path).
+- **Asset Loading (`index.html`):** Fixed service worker registration to use relative paths and properly detect the base path, preventing 404 errors on deployed assets.
+- **Build Configuration (`vite.config.ts`):** Enhanced Vite config to properly read and apply `VITE_BASE_PATH` from environment variables, with console logging for build verification and fallback to root path for local development.
+
 ## [1.1.3] - 2026-04-18
 
 ### Fixed
