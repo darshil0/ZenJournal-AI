@@ -2,6 +2,19 @@
 
 All notable changes to ZenJournal AI will be documented in this file.
 
+## [1.1.1] - 2026-04-17
+
+### Fixed
+- **AI Model Name (`src/services/ai.ts`):** Corrected invalid Gemini model identifier `"gemini-3-flash-preview"` to `"gemini-2.0-flash"` across all AI service calls (`generateJournalInsight`, `chatWithAI`, `generateWeeklySummary`, `generatePersonalizedPrompt`). The previous string caused all AI features to fail at runtime.
+- **Duplicate Toolbar Buttons (`src/App.tsx`):** Removed redundant Bold, Italic, and Bullet List buttons that were rendered twice in the editor toolbar. The duplication caused visual clutter and confusing active-state behavior.
+- **Stale Closures in Keyboard Shortcuts (`src/App.tsx`):** Refactored `createNewEntry`, `updateEntry`, `deleteEntry`, and `handleSave` into `useCallback` hooks. The `useEffect` registering keyboard shortcuts (`Ctrl+N`, `Ctrl+S`, `Escape`) now correctly lists these stable callbacks in its dependency array, preventing stale closure bugs where actions could silently operate on outdated state.
+- **`handleSave` State Mutation (`src/App.tsx`):** Rewrote `handleSave` to use a functional state update pattern (`setEntries` with updater function) rather than closing over the `selectedEntry` memo value, ensuring it always saves against the current entry regardless of render timing.
+- **History Dropdown Click-Outside (`src/App.tsx`):** Added a `useRef` + `mousedown` event listener to close the Version History dropdown when clicking outside of it. Previously, the dropdown could only be closed via the Escape key or by selecting a version.
+- **`window.innerWidth` in Animation Props (`src/App.tsx`):** Replaced inline `window.innerWidth < 1024` calls inside `motion` component `initial`/`animate`/`exit` props with a reactive `isMobile` state variable backed by a `resize` event listener. The previous approach evaluated viewport width only once at initial render, causing incorrect sidebar slide-in direction after window resize.
+- **Footer "Last Saved" Timestamp (`src/App.tsx`):** Changed footer timestamp source from `new Date()` (always showing current clock time) to `new Date(selectedEntry.updatedAt)` so it correctly reflects when the entry was last persisted.
+- **AI Payload Bloat (`src/services/ai.ts`):** Stripped `history` arrays, raw `insight` JSON blobs, and full HTML content from entries before sending to `generatePersonalizedPrompt` and `generateWeeklySummary`. Entry content is now plain-text and capped at 500 characters per entry, significantly reducing token usage and preventing context-window errors on large journals.
+- **Missing ProseMirror Styles (`src/index.css`):** Added CSS rules for heading levels (h1–h3), ordered lists, blockquotes, inline code, code blocks, links, images, horizontal rules, and task-list checkboxes. Previously, Tiptap extensions like `TaskList`, `Link`, and `Image` rendered without any styling.
+
 ## [1.1.0] - 2026-04-09
 
 ### Added
