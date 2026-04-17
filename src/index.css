@@ -8,12 +8,12 @@
 
 @layer base {
   body {
-    @apply bg-[#FDFCFB] text-[#1A1A1A] antialiased;
+    @apply bg-[#FDFCFB] text-[#1A1A1A] antialiased dark:bg-[#121212] dark:text-[#E4E4E4];
   }
 }
 
 .glass-panel {
-  @apply bg-white/70 backdrop-blur-md border border-black/5 shadow-sm;
+  @apply bg-white/70 backdrop-blur-md border border-black/5 shadow-sm dark:bg-[#1E1E1E]/70 dark:border-white/5;
 }
 
 .journal-input {
@@ -21,7 +21,7 @@
 }
 
 .ProseMirror {
-  @apply outline-none min-h-[500px] text-[17px] leading-[1.8] font-editor text-gray-800;
+  @apply outline-none min-h-[500px] text-[17px] leading-[1.8] font-editor text-gray-800 dark:text-gray-200;
 }
 
 .ProseMirror p {
@@ -47,4 +47,3 @@
   pointer-events: none;
   height: 0;
 }
-

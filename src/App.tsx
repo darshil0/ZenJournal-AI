@@ -42,7 +42,8 @@ import {
   Flame,
   Maximize2,
   Minimize2,
-  Info
+  Info,
+  Menu
 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -54,7 +55,7 @@ import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import { format, isWithinInterval, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { JournalEntry, AIInsight, ChatMessage, WeeklySummary } from './types';
-import { generateJournalInsight, chatWithAI, generateWeeklySummary } from './services/ai';
+import { generateJournalInsight, chatWithAI, generateWeeklySummary, generatePersonalizedPrompt } from './services/ai';
 import { SEED_ENTRIES } from './data/seedEntries';
 
 const MOODS = [
@@ -68,6 +69,31 @@ const MOODS = [
   { label: 'Grateful', emoji: '🙏' },
   { label: 'Overwhelmed', emoji: '🤯' },
 ];
+
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+
+  const escapedQuery = query
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+
+  const regex = new RegExp(`(${escapedQuery})`, 'gi');
+  const parts = text.split(regex);
+
+  return (
+    <>
+      {parts.map((part, i) => (
+        regex.test(part) ? (
+          <mark key={i} className="bg-emerald-100 text-emerald-900 rounded-sm px-0.5">{part}</mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      ))}
+    </>
+  );
+}
 
 export default function App() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -87,7 +113,8 @@ export default function App() {
   const [settings, setSettings] = useState({
     fontSize: 'medium',
     theme: 'system',
-    autosave: true
+    autosave: true,
+    aiTone: 'warm'
   });
 
   // Chat State
@@ -100,6 +127,38 @@ export default function App() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [weeklySummary, setWeeklySummary] = useState<WeeklySummary | null>(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Personalized Prompt State
+  const [dailyPrompt, setDailyPrompt] = useState<string>("");
+  const [isPromptLoading, setIsPromptLoading] = useState(false);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        createNewEntry();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder="Search reflections..."]') as HTMLInputElement;
+        searchInput?.focus();
+      }
+      if (e.key === 'Escape') {
+        setShowSettings(false);
+        setIsChatOpen(false);
+        setIsSummaryOpen(false);
+        setShowHistory(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [entries]);
 
   const selectedIdRef = React.useRef(selectedId);
   useEffect(() => {
@@ -133,7 +192,23 @@ export default function App() {
       if (currentId) {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(() => {
-          setEntries(prev => prev.map(e => e.id === currentId ? { ...e, content: html, updatedAt: new Date().toISOString() } : e));
+          setEntries(prev => prev.map(e => {
+            if (e.id === currentId) {
+              const now = new Date().toISOString();
+              const history = e.history || [];
+
+              // Only add to history if content has significantly changed or after some time (1 min)
+              const lastHistory = history[0];
+              const shouldAddHistory = !lastHistory || (new Date(now).getTime() - new Date(lastHistory.timestamp).getTime() > 60000);
+
+              const newHistory = shouldAddHistory
+                ? [{ timestamp: now, content: e.content, title: e.title }, ...history].slice(0, 10)
+                : history;
+
+              return { ...e, content: html, updatedAt: now, history: newHistory };
+            }
+            return e;
+          }));
         }, 500);
       }
     },
@@ -155,12 +230,21 @@ export default function App() {
 
   // Load entries from local storage
   useEffect(() => {
-    const saved = localStorage.getItem('zenjournal_entries');
-    if (saved) {
+    const savedEntries = localStorage.getItem('zenjournal_entries');
+    if (savedEntries) {
       try {
-        setEntries(JSON.parse(saved));
+        setEntries(JSON.parse(savedEntries));
       } catch (e) {
         console.error("Failed to load entries", e);
+      }
+    }
+
+    const savedSettings = localStorage.getItem('zenjournal_settings');
+    if (savedSettings) {
+      try {
+        setSettings(JSON.parse(savedSettings));
+      } catch (e) {
+        console.error("Failed to load settings", e);
       }
     }
   }, []);
@@ -169,6 +253,35 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('zenjournal_entries', JSON.stringify(entries));
   }, [entries]);
+
+  useEffect(() => {
+    localStorage.setItem('zenjournal_settings', JSON.stringify(settings));
+
+    // Apply theme
+    const root = window.document.documentElement;
+    const isDark =
+      settings.theme === 'dark' ||
+      (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    if (isDark) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [settings]);
+
+  // Initial prompt generation
+  useEffect(() => {
+    if (entries.length > 0 && !dailyPrompt) {
+      const generateInitialPrompt = async () => {
+        setIsPromptLoading(true);
+        const prompt = await generatePersonalizedPrompt(entries);
+        setDailyPrompt(prompt);
+        setIsPromptLoading(false);
+      };
+      generateInitialPrompt();
+    }
+  }, [entries.length]);
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -186,17 +299,19 @@ export default function App() {
         includeTags: [] as string[],
       };
 
+      let workingQuery = query;
+
       // Match exact phrases in quotes
-      const exactMatches = query.match(/"([^"]+)"/g);
+      const exactMatches = workingQuery.match(/"([^"]+)"/g);
       if (exactMatches) {
         exactMatches.forEach(m => {
           terms.exact.push(m.replace(/"/g, '').toLowerCase());
-          query = query.replace(m, '');
+          workingQuery = workingQuery.replace(m, '');
         });
       }
 
       // Split remaining query by spaces
-      const parts = query.split(/\s+/).filter(Boolean);
+      const parts = workingQuery.split(/\s+/).filter(Boolean);
       parts.forEach(part => {
         if (part.startsWith('-#')) {
           terms.excludeTags.push(part.slice(2).toLowerCase());
@@ -214,12 +329,27 @@ export default function App() {
 
     const searchTerms = parseSearchQuery(searchQuery);
 
+    const fuzzyMatch = (text: string, query: string) => {
+      text = text.toLowerCase();
+      query = query.toLowerCase();
+      if (text.includes(query)) return true;
+
+      let i = 0;
+      let j = 0;
+      while (i < text.length && j < query.length) {
+        if (text[i] === query[j]) j++;
+        i++;
+      }
+      return j === query.length;
+    };
+
     return entries
       .filter(e => {
-        const fullContent = (e.title + ' ' + e.content).toLowerCase();
+        const contentText = e.content.replace(/<[^>]*>/g, ' ');
+        const fullContent = (e.title + ' ' + contentText).toLowerCase();
         
         const matchesExact = searchTerms.exact.every(phrase => fullContent.includes(phrase));
-        const matchesInclude = searchTerms.include.every(word => fullContent.includes(word));
+        const matchesInclude = searchTerms.include.every(word => fuzzyMatch(fullContent, word));
         const matchesExclude = searchTerms.exclude.length === 0 || !searchTerms.exclude.some(word => fullContent.includes(word));
         const matchesIncludeTagsSearch = searchTerms.includeTags.every(tag => e.tags.includes(tag));
         const matchesExcludeTags = searchTerms.excludeTags.length === 0 || !searchTerms.excludeTags.some(tag => e.tags.includes(tag));
@@ -367,7 +497,7 @@ export default function App() {
     setIsChatLoading(true);
 
     try {
-      const response = await chatWithAI([...chatMessages, userMessage]);
+      const response = await chatWithAI([...chatMessages, userMessage], settings.aiTone);
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -439,15 +569,29 @@ export default function App() {
   }, [selectedEntry]);
 
   return (
-    <div className="flex h-screen overflow-hidden font-sans">
+    <div className="flex h-screen overflow-hidden font-sans relative">
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {!isFocusMode && isSidebarOpen && window.innerWidth < 1024 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[80]"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <AnimatePresence mode="wait">
         {!isFocusMode && isSidebarOpen && (
           <motion.aside
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 320, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="flex flex-col border-r border-black/5 bg-[#F7F5F2] overflow-hidden"
+            initial={{ x: window.innerWidth < 1024 ? -320 : 0, width: window.innerWidth < 1024 ? 320 : 0, opacity: 0 }}
+            animate={{ x: 0, width: 320, opacity: 1 }}
+            exit={{ x: window.innerWidth < 1024 ? -320 : 0, width: 0, opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className={`fixed lg:relative flex flex-col border-r border-black/5 bg-[#F7F5F2] dark:bg-[#1A1A1A] dark:border-white/5 overflow-hidden h-full z-[90]`}
           >
             <div className="p-6 flex items-center justify-between">
               <div className="flex flex-col">
@@ -617,24 +761,24 @@ export default function App() {
                     {entry.insight && <Sparkles className="w-3 h-3 text-emerald-500" />}
                   </div>
                   <h3 className={`font-medium text-sm truncate ${selectedId === entry.id ? 'text-black' : 'text-gray-600'}`}>
-                    {entry.title || 'Untitled Reflection'}
+                    <HighlightText text={entry.title || 'Untitled Reflection'} query={searchQuery} />
                   </h3>
                   <p className="text-xs text-gray-400 line-clamp-1 mt-1">
-                    {entry.content || 'No content yet...'}
+                    <HighlightText text={entry.content.replace(/<[^>]*>/g, ' ') || 'No content yet...'} query={searchQuery} />
                   </p>
                   {entry.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {entry.tags.slice(0, 3).map(tag => (
-                        <button 
+                        <span
                           key={tag} 
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedTags(prev => prev.includes(tag) ? prev : [...prev, tag]);
                           }}
-                          className="text-[9px] px-1.5 py-0.5 bg-black/5 text-gray-500 rounded-md hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                          className="text-[9px] px-1.5 py-0.5 bg-black/5 dark:bg-white/5 text-gray-500 rounded-md hover:bg-emerald-50 hover:text-emerald-600 transition-colors cursor-pointer"
                         >
                           #{tag}
-                        </button>
+                        </span>
                       ))}
                       {entry.tags.length > 3 && (
                         <span className="text-[9px] text-gray-400">+{entry.tags.length - 3}</span>
@@ -683,15 +827,20 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col bg-white relative overflow-hidden">
+      <main className="flex-1 flex flex-col bg-white dark:bg-[#121212] relative overflow-hidden">
         {/* Header */}
-        <header className="h-16 border-b border-black/5 flex items-center justify-between px-6">
-          <div className="flex items-center gap-4">
+        <header className="h-16 border-b border-black/5 dark:border-white/5 flex items-center justify-between px-4 lg:px-6">
+          <div className="flex items-center gap-2 lg:gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors text-gray-500"
             >
-              {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+              <span className="hidden lg:block">
+                {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+              </span>
+              <span className="lg:hidden">
+                <Menu className="w-5 h-5" />
+              </span>
             </button>
             {selectedEntry && (
               <div className="flex flex-col">
@@ -711,64 +860,75 @@ export default function App() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 lg:gap-2">
+            <button
+              onClick={() => {
+                setIsSidebarOpen(true);
+                setTimeout(() => {
+                  (document.querySelector('input[placeholder="Search reflections..."]') as HTMLInputElement)?.focus();
+                }, 100);
+              }}
+              className="lg:hidden p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
+            >
+              <Search className="w-5 h-5" />
+            </button>
             <button 
               onClick={() => setIsFocusMode(!isFocusMode)}
-              className={`p-2 rounded-lg transition-colors ${isFocusMode ? 'bg-emerald-100 text-emerald-700' : 'text-gray-400 hover:bg-gray-100'}`}
+              className={`p-2 rounded-lg transition-colors ${isFocusMode ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5'}`}
               title={isFocusMode ? "Exit Focus Mode" : "Enter Focus Mode"}
             >
-              {isFocusMode ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+              {isFocusMode ? <Minimize2 className="w-4 lg:w-5 h-4 lg:h-5" /> : <Maximize2 className="w-4 lg:w-5 h-4 lg:h-5" />}
             </button>
-            <div className="w-px h-4 bg-black/5 mx-1" />
+            <div className="hidden sm:block w-px h-4 bg-black/5 mx-1" />
             <button 
               onClick={() => setIsChatOpen(true)}
-              className="flex items-center gap-2 px-4 py-1.5 bg-white border border-black/5 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-2 lg:px-4 py-1.5 bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 text-gray-700 dark:text-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
             >
               <MessageCircle className="w-4 h-4 text-emerald-600" />
-              Companion
+              <span className="hidden sm:inline">Companion</span>
             </button>
             <button 
               onClick={handleGenerateSummary}
               disabled={isSummaryLoading}
-              className="flex items-center gap-2 px-4 py-1.5 bg-white border border-black/5 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-2 lg:px-4 py-1.5 bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 text-gray-700 dark:text-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSummaryLoading ? (
                 <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
               ) : (
                 <BarChart3 className="w-4 h-4 text-emerald-600" />
               )}
-              {isSummaryLoading ? 'Analyzing...' : 'Stats'}
+              <span className="hidden sm:inline">{isSummaryLoading ? 'Analyzing...' : 'Stats'}</span>
             </button>
             <div className="w-px h-4 bg-black/5 mx-2" />
             {selectedEntry && (
               <>
                 <button 
                   onClick={handleSave}
-                  className="flex items-center gap-2 px-4 py-1.5 bg-white border border-black/5 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-2 lg:px-4 py-1.5 bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 text-gray-700 dark:text-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
                 >
                   {isSaving ? (
                     <>
                       <div className="w-4 h-4 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-                      Saving...
+                      <span className="hidden lg:inline ml-1">Saving...</span>
                     </>
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      Save Entry
+                      <span className="hidden lg:inline ml-1">Save Entry</span>
                     </>
                   )}
                 </button>
                 <button 
                   onClick={handleGenerateInsight}
                   disabled={isGenerating || !selectedEntry.content.trim()}
-                  className="flex items-center gap-2 px-4 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-sm font-medium hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-2 lg:px-4 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 rounded-full text-sm font-medium hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
                 >
                   {isGenerating ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <Sparkles className="w-4 h-4" />
                   )}
-                  {selectedEntry.insight ? 'Refresh Insights' : 'Get AI Insights'}
+                  <span className="hidden lg:inline ml-1">{selectedEntry.insight ? 'Refresh Insights' : 'Get AI Insights'}</span>
                 </button>
                 <button 
                   onClick={() => deleteEntry(selectedEntry.id)}
@@ -801,6 +961,68 @@ export default function App() {
                       {mood.label}
                     </button>
                   ))}
+                  <div className="ml-auto relative">
+                    <button
+                      onClick={() => setShowHistory(!showHistory)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white border border-black/5 hover:bg-gray-50 text-gray-500"
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      History
+                    </button>
+                    <AnimatePresence>
+                      {showHistory && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-black/5 z-[60] overflow-hidden"
+                        >
+                          <div className="p-4 border-b border-black/5 bg-gray-50">
+                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Version History</h4>
+                          </div>
+                          <div className="max-h-64 overflow-y-auto">
+                            {selectedEntry.history && selectedEntry.history.length > 0 ? (
+                              selectedEntry.history.map((version, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => {
+                                    // Create a snapshot of current state before reverting
+                                    const now = new Date().toISOString();
+                                    const currentHistory = selectedEntry.history || [];
+                                    const newHistory = [{
+                                      timestamp: now,
+                                      content: selectedEntry.content,
+                                      title: selectedEntry.title
+                                    }, ...currentHistory].slice(0, 10);
+
+                                    updateEntry(selectedEntry.id, {
+                                      content: version.content,
+                                      title: version.title,
+                                      history: newHistory,
+                                      updatedAt: now
+                                    });
+                                    setShowHistory(false);
+                                  }}
+                                  className="w-full text-left p-3 hover:bg-gray-50 border-b border-black/5 last:border-0 transition-colors"
+                                >
+                                  <p className="text-xs font-medium text-gray-700">
+                                    {format(new Date(version.timestamp), 'MMM d, HH:mm')}
+                                  </p>
+                                  <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                                    {version.title || 'Untitled'}
+                                  </p>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="p-4 text-center">
+                                <p className="text-xs text-gray-400">No previous versions</p>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
 
                 <input 
@@ -1123,20 +1345,50 @@ export default function App() {
                 </AnimatePresence>
               </div>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-40 py-32">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center">
-                  <BookOpen className="w-10 h-10 text-gray-400" />
+              <div className="h-full flex flex-col items-center justify-center text-center space-y-8 py-20">
+                <div className="space-y-4 opacity-40">
+                  <div className="w-20 h-20 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto">
+                    <BookOpen className="w-10 h-10 text-gray-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-semibold dark:text-white">Select a reflection</h2>
+                    <p className="text-gray-500">Choose an entry from the sidebar or create a new one to start journaling.</p>
+                  </div>
+                  <button
+                    onClick={createNewEntry}
+                    className="px-6 py-2 bg-black dark:bg-white dark:text-black text-white rounded-full text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
+                  >
+                    New Entry
+                  </button>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-semibold">Select a reflection</h2>
-                  <p className="text-gray-500">Choose an entry from the sidebar or create a new one to start journaling.</p>
-                </div>
-                <button 
-                  onClick={createNewEntry}
-                  className="px-6 py-2 bg-black text-white rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
-                >
-                  New Entry
-                </button>
+
+                {dailyPrompt && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="max-w-md p-8 bg-emerald-50 dark:bg-emerald-500/5 rounded-3xl border border-emerald-100 dark:border-emerald-500/20 relative group"
+                  >
+                    <div className="absolute -top-3 left-8 px-3 py-1 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg">
+                      Personalized Prompt
+                    </div>
+                    <p className="text-emerald-900 dark:text-emerald-400 text-lg serif italic leading-relaxed">
+                      "{dailyPrompt}"
+                    </p>
+                    <button
+                      onClick={async () => {
+                        setIsPromptLoading(true);
+                        const prompt = await generatePersonalizedPrompt(entries);
+                        setDailyPrompt(prompt);
+                        setIsPromptLoading(false);
+                      }}
+                      disabled={isPromptLoading}
+                      className="mt-6 text-[10px] font-bold text-emerald-600/60 hover:text-emerald-600 uppercase tracking-widest flex items-center gap-2 mx-auto transition-colors disabled:opacity-50"
+                    >
+                      {isPromptLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                      New Prompt
+                    </button>
+                  </motion.div>
+                )}
               </div>
             )}
           </div>
@@ -1460,15 +1712,28 @@ export default function App() {
                       </select>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Theme</span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Theme</span>
                       <select 
                         value={settings.theme}
                         onChange={(e) => setSettings(prev => ({ ...prev, theme: e.target.value }))}
-                        className="text-sm bg-gray-50 border border-black/5 rounded-lg px-3 py-1.5 focus:outline-none"
+                        className="text-sm bg-gray-50 dark:bg-white/5 border border-black/5 dark:border-white/5 dark:text-white rounded-lg px-3 py-1.5 focus:outline-none"
                       >
                         <option value="light">Light</option>
                         <option value="dark">Dark</option>
                         <option value="system">System</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Companion Tone</span>
+                      <select
+                        value={settings.aiTone}
+                        onChange={(e) => setSettings(prev => ({ ...prev, aiTone: e.target.value }))}
+                        className="text-sm bg-gray-50 dark:bg-white/5 border border-black/5 dark:border-white/5 dark:text-white rounded-lg px-3 py-1.5 focus:outline-none"
+                      >
+                        <option value="warm">Warm & Empathetic</option>
+                        <option value="clinical">Clinical & Analytical</option>
+                        <option value="poetic">Poetic & Metaphorical</option>
+                        <option value="direct">Direct & Concise</option>
                       </select>
                     </div>
                   </div>
