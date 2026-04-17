@@ -5,7 +5,7 @@ All notable changes to ZenJournal AI will be documented in this file.
 ## [1.1.2] - 2026-04-17
  
 ### Fixed
-- **CI/CD Pipeline (`.github/workflows/deploy.yml`):** Added `VITE_BASE_PATH` and `GEMINI_API_KEY` to the build process. Correctly configured the workflow to handle sub-path deployments on GitHub Pages and enabled `cancel-in-progress` for more efficient builds.
+- **CI/CD Pipeline (`.github/workflows/deploy.yml`):** Added `VITE_BASE_PATH` and `GEMINI_API_KEY` to the build process. Correctly configured the workflow to handle sub-path deployments on GitHub Pages, enabled `cancel-in-progress`, and added `fetch-depth: 0` to the checkout step for improved metadata retrieval and build resilience.
 - **Sub-path Hosting Compatibility (`index.html`, `public/sw.js`):** Converted absolute paths for `manifest.json`, `sw.js`, and the main script bundle to relative paths. This ensures the application loads correctly and the Service Worker caches the right assets when hosted in a sub-folder (like a GitHub repository page).
 
 ## [1.1.1] - 2026-04-17
