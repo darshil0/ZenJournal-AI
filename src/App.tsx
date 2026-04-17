@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Tag,
@@ -21,7 +21,6 @@ import {
   BookOpen,
   Clock,
   Settings,
-  MoreVertical,
   Loader2,
   Bold,
   Italic,
@@ -36,7 +35,6 @@ import {
   MessageCircle,
   BarChart3,
   Send,
-  User,
   Bot,
   ArrowUpRight,
   Flame,
@@ -133,39 +131,27 @@ export default function App() {
   const [dailyPrompt, setDailyPrompt] = useState<string>("");
   const [isPromptLoading, setIsPromptLoading] = useState(false);
 
-  // Keyboard Shortcuts
+  // FIX #5: Ref for history dropdown to handle click-outside
+  const historyDropdownRef = useRef<HTMLDivElement>(null);
+
+  // FIX #5: Click-outside handler for history dropdown
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-        e.preventDefault();
-        createNewEntry();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
-        const searchInput = document.querySelector('input[placeholder="Search reflections..."]') as HTMLInputElement;
-        searchInput?.focus();
-      }
-      if (e.key === 'Escape') {
-        setShowSettings(false);
-        setIsChatOpen(false);
-        setIsSummaryOpen(false);
+    if (!showHistory) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (historyDropdownRef.current && !historyDropdownRef.current.contains(e.target as Node)) {
         setShowHistory(false);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [entries]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showHistory]);
 
   const selectedIdRef = React.useRef(selectedId);
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
-  const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -197,7 +183,6 @@ export default function App() {
               const now = new Date().toISOString();
               const history = e.history || [];
 
-              // Only add to history if content has significantly changed or after some time (1 min)
               const lastHistory = history[0];
               const shouldAddHistory = !lastHistory || (new Date(now).getTime() - new Date(lastHistory.timestamp).getTime() > 60000);
 
@@ -218,7 +203,7 @@ export default function App() {
     return entries.find(e => e.id === selectedId);
   }, [entries, selectedId]);
 
-  // Sync editor content when selected entry changes - FIX CURSOR JUMP
+  // Sync editor content when selected entry changes
   useEffect(() => {
     if (editor && selectedEntry) {
       const currentContent = editor.getHTML();
@@ -257,7 +242,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('zenjournal_settings', JSON.stringify(settings));
 
-    // Apply theme
     const root = window.document.documentElement;
     const isDark =
       settings.theme === 'dark' ||
@@ -281,6 +265,7 @@ export default function App() {
       };
       generateInitialPrompt();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries.length]);
 
   const allTags = useMemo(() => {
@@ -301,7 +286,6 @@ export default function App() {
 
       let workingQuery = query;
 
-      // Match exact phrases in quotes
       const exactMatches = workingQuery.match(/"([^"]+)"/g);
       if (exactMatches) {
         exactMatches.forEach(m => {
@@ -310,7 +294,6 @@ export default function App() {
         });
       }
 
-      // Split remaining query by spaces
       const parts = workingQuery.split(/\s+/).filter(Boolean);
       parts.forEach(part => {
         if (part.startsWith('-#')) {
@@ -375,7 +358,7 @@ export default function App() {
     if (entries.length === 0) return 0;
 
     const dates = entries
-      .map(e => new Date(e.journaledAt).toLocaleDateString('en-CA')) // YYYY-MM-DD
+      .map(e => new Date(e.journaledAt).toLocaleDateString('en-CA'))
       .filter((v, i, a) => a.indexOf(v) === i)
       .sort((a, b) => b.localeCompare(a));
 
@@ -385,7 +368,7 @@ export default function App() {
     if (dates[0] !== today && dates[0] !== yesterday) return 0;
 
     let currentStreak = 0;
-    let checkDate = new Date(dates[0]);
+    const checkDate = new Date(dates[0]);
 
     for (let i = 0; i < dates.length; i++) {
       const dateStr = checkDate.toLocaleDateString('en-CA');
@@ -400,7 +383,8 @@ export default function App() {
     return currentStreak;
   }, [entries]);
 
-  const createNewEntry = () => {
+  // FIX #6: Stable callbacks with useCallback to avoid stale closures in keyboard shortcut effect
+  const createNewEntry = useCallback(() => {
     const now = new Date().toISOString();
     const newEntry: JournalEntry = {
       id: crypto.randomUUID(),
@@ -411,27 +395,60 @@ export default function App() {
       content: '',
       tags: []
     };
-    setEntries([newEntry, ...entries]);
+    setEntries(prev => [newEntry, ...prev]);
     setSelectedId(newEntry.id);
-  };
+  }, []);
 
-  const updateEntry = (id: string, updates: Partial<JournalEntry>) => {
+  const updateEntry = useCallback((id: string, updates: Partial<JournalEntry>) => {
     setEntries(prev => prev.map(e => e.id === id ? { ...e, ...updates, updatedAt: new Date().toISOString() } : e));
-  };
+  }, []);
 
-  const deleteEntry = (id: string) => {
+  const deleteEntry = useCallback((id: string) => {
     if (confirm('Are you sure you want to delete this entry?')) {
       setEntries(prev => prev.filter(e => e.id !== id));
-      if (selectedId === id) setSelectedId(null);
+      setSelectedId(prev => prev === id ? null : prev);
     }
-  };
+  }, []);
 
-  const handleSave = () => {
-    if (!selectedEntry) return;
-    setIsSaving(true);
-    updateEntry(selectedEntry.id, {});
-    setTimeout(() => setIsSaving(false), 2000);
-  };
+  const handleSave = useCallback(() => {
+    setSelectedId(prev => {
+      if (!prev) return prev;
+      setIsSaving(true);
+      // updateEntry is stable via useCallback, use functional update pattern
+      setEntries(prevEntries => prevEntries.map(e =>
+        e.id === prev ? { ...e, updatedAt: new Date().toISOString() } : e
+      ));
+      setTimeout(() => setIsSaving(false), 2000);
+      return prev;
+    });
+  }, []);
+
+  // FIX #6: Keyboard shortcuts now reference stable callbacks — no stale closure issues
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        createNewEntry();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder="Search reflections..."]') as HTMLInputElement;
+        searchInput?.focus();
+      }
+      if (e.key === 'Escape') {
+        setShowSettings(false);
+        setIsChatOpen(false);
+        setIsSummaryOpen(false);
+        setShowHistory(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [createNewEntry, handleSave]);
 
   const handleExport = () => {
     const dataStr = JSON.stringify(entries, null, 2);
@@ -568,11 +585,20 @@ export default function App() {
     }
   }, [selectedEntry]);
 
+  // FIX #7: Use state for isMobile instead of reading window.innerWidth inside render/animation props
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden font-sans relative">
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
-        {!isFocusMode && isSidebarOpen && window.innerWidth < 1024 && (
+        {!isFocusMode && isSidebarOpen && isMobile && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -587,9 +613,9 @@ export default function App() {
       <AnimatePresence mode="wait">
         {!isFocusMode && isSidebarOpen && (
           <motion.aside
-            initial={{ x: window.innerWidth < 1024 ? -320 : 0, width: window.innerWidth < 1024 ? 320 : 0, opacity: 0 }}
+            initial={{ x: isMobile ? -320 : 0, width: isMobile ? 320 : 0, opacity: 0 }}
             animate={{ x: 0, width: 320, opacity: 1 }}
-            exit={{ x: window.innerWidth < 1024 ? -320 : 0, width: 0, opacity: 0 }}
+            exit={{ x: isMobile ? -320 : 0, width: 0, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className={`fixed lg:relative flex flex-col border-r border-black/5 bg-[#F7F5F2] dark:bg-[#1A1A1A] dark:border-white/5 overflow-hidden h-full z-[90]`}
           >
@@ -961,7 +987,8 @@ export default function App() {
                       {mood.label}
                     </button>
                   ))}
-                  <div className="ml-auto relative">
+                  {/* FIX #5: Added ref to history dropdown wrapper for click-outside handling */}
+                  <div className="ml-auto relative" ref={historyDropdownRef}>
                     <button
                       onClick={() => setShowHistory(!showHistory)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white border border-black/5 hover:bg-gray-50 text-gray-500"
@@ -986,7 +1013,6 @@ export default function App() {
                                 <button
                                   key={i}
                                   onClick={() => {
-                                    // Create a snapshot of current state before reverting
                                     const now = new Date().toISOString();
                                     const currentHistory = selectedEntry.history || [];
                                     const newHistory = [{
@@ -1068,6 +1094,7 @@ export default function App() {
                 </div>
                 
                 <div className="bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-black/[0.02] overflow-hidden">
+                  {/* FIX #8: Removed duplicate Bold, Italic, and BulletList toolbar buttons */}
                   <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b-[0.5px] border-black/10 px-4 py-2 flex items-center gap-1">
                     <div className="flex items-center gap-0.5">
                       <button
@@ -1092,18 +1119,21 @@ export default function App() {
                       <button
                         onClick={() => editor?.chain().focus().toggleBold().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('bold') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Bold (Ctrl+B)"
                       >
                         <Bold className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleItalic().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('italic') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Italic (Ctrl+I)"
                       >
                         <Italic className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleUnderline().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('underline') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Underline (Ctrl+U)"
                       >
                         <UnderlineIcon className="w-4 h-4" />
                       </button>
@@ -1113,18 +1143,21 @@ export default function App() {
                       <button
                         onClick={() => editor?.chain().focus().toggleBulletList().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('bulletList') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Bullet List"
                       >
                         <List className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleOrderedList().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('orderedList') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Numbered List"
                       >
                         <ListOrdered className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => editor?.chain().focus().toggleTaskList().run()}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('taskList') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Task List"
                       >
                         <CheckSquare className="w-4 h-4" />
                       </button>
@@ -1134,57 +1167,16 @@ export default function App() {
                       <button
                         onClick={setLink}
                         className={`p-2 rounded-lg transition-colors ${editor?.isActive('link') ? 'bg-emerald-50 text-emerald-600' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
+                        title="Insert Link"
                       >
                         <LinkIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={addImage}
                         className="p-2 rounded-lg transition-colors text-gray-400 hover:text-gray-900 hover:bg-gray-50"
+                        title="Insert Image"
                       >
                         <ImageIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                    
-                    <div className="w-px h-4 bg-black/5 mx-1" />
-                    
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => editor?.chain().focus().toggleBold().run()}
-                        className={`p-2 rounded-lg transition-all ${
-                          editor?.isActive('bold') 
-                            ? 'bg-emerald-50 text-emerald-600' 
-                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
-                        }`}
-                        title="Bold (Ctrl+B)"
-                      >
-                        <Bold className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => editor?.chain().focus().toggleItalic().run()}
-                        className={`p-2 rounded-lg transition-all ${
-                          editor?.isActive('italic') 
-                            ? 'bg-emerald-50 text-emerald-600' 
-                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
-                        }`}
-                        title="Italic (Ctrl+I)"
-                      >
-                        <Italic className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="w-px h-4 bg-black/5 mx-1" />
-
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => editor?.chain().focus().toggleBulletList().run()}
-                        className={`p-2 rounded-lg transition-all ${
-                          editor?.isActive('bulletList') 
-                            ? 'bg-emerald-50 text-emerald-600' 
-                            : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
-                        }`}
-                        title="Bullet List"
-                      >
-                        <List className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -1250,18 +1242,6 @@ export default function App() {
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-widest">Summary</h4>
-                            <button 
-                              onClick={() => handleCopyPrompt(selectedEntry.insight || '')}
-                              className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
-                                copied ? 'text-emerald-600 bg-emerald-100' : 'text-emerald-600/40 hover:text-emerald-600 hover:bg-emerald-50'
-                              }`}
-                              title="Copy AI JSON"
-                            >
-                              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                              <span className="text-[9px] font-bold uppercase tracking-wider">
-                                {copied ? 'Copied' : 'Copy JSON'}
-                              </span>
-                            </button>
                           </div>
                           <p className="text-emerald-900/80 leading-relaxed italic">
                             "{parsedInsight.entry_summary}"
@@ -1403,7 +1383,7 @@ export default function App() {
                 {selectedEntry.content.split(/\s+/).filter(Boolean).length} words
               </span>
               <span>
-                Last saved: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                Last saved: {new Date(selectedEntry.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
             <div className="flex items-center gap-1 text-emerald-500 font-bold">
