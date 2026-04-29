@@ -2,6 +2,17 @@
 
 All notable changes to ZenJournal AI will be documented in this file.
 
+## [1.1.5] - 2026-05-12
+
+### Added
+- **Sub-path Hosting Robustness (`index.html`):** Added a `<base href="./">` tag to ensure more reliable relative path resolution for Service Worker registration and other assets when deployed in subdirectories.
+
+### Fixed
+- **CI/CD Build Reliability (`.github/workflows/deploy.yml`):** Added `GEMINI_API_KEY` to the build environment to align with application requirements and ensure successful deployment initialization.
+- **Redundant Logic Refactoring (`src/App.tsx`, `src/components/EditorSection.tsx`):** Consolidated history snapshotting into a reusable `createHistorySnapshot` helper and implemented a centralized `handleRestoreVersion` callback. This eliminates duplicated code across auto-save, manual save, and version restoration.
+- **Dependency Cleanup (`package.json`):** Removed unused `express` and `@types/express` dependencies, reducing the overall package size and complexity.
+- **Version Alignment:** Updated `package.json` to version 1.1.5 to stay synchronized with the changelog.
+
 ## [1.1.4] - 2026-04-18
 
 ### Fixed

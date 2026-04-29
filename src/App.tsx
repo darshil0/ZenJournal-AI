@@ -125,16 +125,8 @@ export default function App() {
           setEntries(prev => prev.map(e => {
             if (e.id === targetId) {
               const now = new Date().toISOString();
-              const history = e.history || [];
-
-              const lastHistory = history[0];
-              const shouldAddHistory = !lastHistory || (new Date(now).getTime() - new Date(lastHistory.timestamp).getTime() > 60000);
-
-              const newHistory = shouldAddHistory
-                ? [{ timestamp: now, content: e.content, title: e.title }, ...history].slice(0, 10)
-                : history;
-
-              return { ...e, content: html, updatedAt: now, history: newHistory };
+              const entryWithSnapshot = createHistorySnapshot(e);
+              return { ...entryWithSnapshot, content: html, updatedAt: now };
             }
             return e;
           }));
@@ -349,9 +341,43 @@ export default function App() {
     setSelectedId(newEntry.id);
   }, []);
 
+  const createHistorySnapshot = useCallback((entry: JournalEntry): JournalEntry => {
+    const now = new Date().toISOString();
+    const history = entry.history || [];
+    const lastHistory = history[0];
+    const shouldAddHistory = !lastHistory || (new Date(now).getTime() - new Date(lastHistory.timestamp).getTime() > 60000);
+
+    if (shouldAddHistory) {
+      const newHistory = [{
+        timestamp: now,
+        content: entry.content,
+        title: entry.title
+      }, ...history].slice(0, 10);
+      return { ...entry, history: newHistory };
+    }
+    return entry;
+  }, []);
+
   const updateEntry = useCallback((id: string, updates: Partial<JournalEntry>) => {
     setEntries(prev => prev.map(e => e.id === id ? { ...e, ...updates, updatedAt: new Date().toISOString() } : e));
   }, []);
+
+  const handleRestoreVersion = useCallback((id: string, version: { content: string, title: string }) => {
+    setEntries(prev => prev.map(e => {
+      if (e.id === id) {
+        const now = new Date().toISOString();
+        const snapshottedEntry = createHistorySnapshot(e);
+        return {
+          ...snapshottedEntry,
+          content: version.content,
+          title: version.title,
+          updatedAt: now
+        };
+      }
+      return e;
+    }));
+    setShowHistory(false);
+  }, [createHistorySnapshot]);
 
   const deleteEntry = useCallback((id: string) => {
     if (confirm('Are you sure you want to delete this entry?')) {
@@ -375,19 +401,14 @@ export default function App() {
     setEntries(prev => prev.map(e => {
       if (e.id === currentId) {
         const now = new Date().toISOString();
-        const history = e.history || [];
-        const lastHistory = history[0];
-        const shouldAddHistory = !lastHistory || (new Date(now).getTime() - new Date(lastHistory.timestamp).getTime() > 60000);
-        const newHistory = shouldAddHistory
-          ? [{ timestamp: now, content: e.content, title: e.title }, ...history].slice(0, 10)
-          : history;
-        return { ...e, content: html, updatedAt: now, history: newHistory };
+        const entryWithSnapshot = createHistorySnapshot(e);
+        return { ...entryWithSnapshot, content: html, updatedAt: now };
       }
       return e;
     }));
 
     setTimeout(() => setIsSaving(false), 1000);
-  }, [editor]);
+  }, [editor, createHistorySnapshot]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -625,6 +646,7 @@ export default function App() {
                 <EditorSection
                   selectedEntry={selectedEntry}
                   updateEntry={updateEntry}
+                  handleRestoreVersion={handleRestoreVersion}
                   showHistory={showHistory}
                   setShowHistory={setShowHistory}
                   historyDropdownRef={historyDropdownRef}
