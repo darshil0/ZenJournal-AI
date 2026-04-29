@@ -23,6 +23,7 @@ import { MOODS } from '../constants/moods';
 interface EditorSectionProps {
   selectedEntry: JournalEntry;
   updateEntry: (id: string, updates: Partial<JournalEntry>) => void;
+  handleRestoreVersion: (id: string, version: { content: string, title: string }) => void;
   showHistory: boolean;
   setShowHistory: (show: boolean) => void;
   historyDropdownRef: React.RefObject<HTMLDivElement | null>;
@@ -38,6 +39,7 @@ interface EditorSectionProps {
 export const EditorSection: React.FC<EditorSectionProps> = ({
   selectedEntry,
   updateEntry,
+  handleRestoreVersion,
   showHistory,
   setShowHistory,
   historyDropdownRef,
@@ -90,23 +92,10 @@ export const EditorSection: React.FC<EditorSectionProps> = ({
                     selectedEntry.history.map((version, i) => (
                       <button
                         key={i}
-                        onClick={() => {
-                          const now = new Date().toISOString();
-                          const currentHistory = selectedEntry.history || [];
-                          const newHistory = [{
-                            timestamp: now,
-                            content: selectedEntry.content,
-                            title: selectedEntry.title
-                          }, ...currentHistory].slice(0, 10);
-
-                          updateEntry(selectedEntry.id, {
-                            content: version.content,
-                            title: version.title,
-                            history: newHistory,
-                            updatedAt: now
-                          });
-                          setShowHistory(false);
-                        }}
+                        onClick={() => handleRestoreVersion(selectedEntry.id, {
+                          content: version.content,
+                          title: version.title
+                        })}
                         className="w-full text-left p-3 hover:bg-gray-50 border-b border-black/5 last:border-0 transition-colors"
                       >
                         <p className="text-xs font-medium text-gray-700">
