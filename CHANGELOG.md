@@ -2,7 +2,7 @@
 
 All notable changes to ZenJournal AI will be documented in this file.
 
-## [1.1.6] - 2026-05-13
+## [1.1.6] - 2026-09-13
 
 ### Fixed
 - **Serif Utility Class Correction (`src/App.tsx`, `src/components/SettingsModal.tsx`, `src/components/ChatOverlay.tsx`, `src/components/Insights.tsx`):** Replaced four occurrences of the incorrect Tailwind class `serif` with `font-serif` to ensure proper font family rendering.
