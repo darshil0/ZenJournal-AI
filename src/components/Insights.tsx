@@ -40,10 +40,10 @@ export const AIInsightView: React.FC<AIInsightViewProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-12 p-8 rounded-3xl bg-emerald-50/50 border border-emerald-100 space-y-6 relative overflow-hidden"
+      className="mt-12 p-8 rounded-3xl bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20 space-y-6 relative overflow-hidden"
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-emerald-800 font-semibold">
+        <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold">
           <Sparkles className="w-5 h-5" />
           AI Reflection Insights
         </div>
@@ -53,7 +53,7 @@ export const AIInsightView: React.FC<AIInsightViewProps> = ({
             className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 border ${
               copied
                 ? 'bg-emerald-500 text-white border-emerald-500'
-                : 'bg-white hover:bg-emerald-100 text-emerald-600 border-emerald-200'
+                : 'bg-white dark:bg-white/5 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30'
             }`}
             title="Copy AI JSON"
           >
@@ -62,10 +62,10 @@ export const AIInsightView: React.FC<AIInsightViewProps> = ({
               {copied ? 'Copied!' : 'Copy JSON'}
             </span>
           </button>
-          <div className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold uppercase tracking-wider">
+          <div className="px-3 py-1 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-full text-[10px] font-bold uppercase tracking-wider">
             Score: {parsedInsight.mood_score}/10
           </div>
-          <div className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold uppercase tracking-wider">
+          <div className="px-3 py-1 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-full text-[10px] font-bold uppercase tracking-wider">
             Mood: {parsedInsight.mood_label}
           </div>
         </div>
@@ -74,30 +74,30 @@ export const AIInsightView: React.FC<AIInsightViewProps> = ({
       <div className="space-y-4">
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-widest">Summary</h4>
+            <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-widest">Summary</h4>
           </div>
-          <p className="text-emerald-900/80 leading-relaxed italic">
+          <p className="text-emerald-900/80 dark:text-emerald-200/80 leading-relaxed italic">
             "{parsedInsight.entry_summary}"
           </p>
         </div>
 
         <div>
-          <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-widest mb-2">Insight of the Day</h4>
-          <p className="text-sm text-emerald-900/70 leading-relaxed">
+          <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-widest mb-2">Insight of the Day</h4>
+          <p className="text-sm text-emerald-900/70 dark:text-emerald-200/70 leading-relaxed">
             {parsedInsight.insight_of_the_day}
           </p>
         </div>
 
         <div>
-          <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-widest mb-2">Reflection</h4>
-          <p className="text-sm text-emerald-900/70 leading-relaxed bg-white/30 p-4 rounded-2xl border border-emerald-100/50">
+          <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-widest mb-2">Reflection</h4>
+          <p className="text-sm text-emerald-900/70 dark:text-emerald-200/70 leading-relaxed bg-white/30 dark:bg-white/5 p-4 rounded-2xl border border-emerald-100/50 dark:border-emerald-500/20">
             {parsedInsight.reflection}
           </p>
         </div>
 
-        <div className="pt-4 border-t border-emerald-100">
+        <div className="pt-4 border-t border-emerald-100 dark:border-emerald-500/20">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-widest">Follow-up Prompt</h4>
+            <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-widest">Follow-up Prompt</h4>
             <button
               onClick={() => onAnswerReflection(parsedInsight.follow_up_prompt)}
               className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 text-white rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-700 transition-all shadow-sm"
@@ -106,7 +106,7 @@ export const AIInsightView: React.FC<AIInsightViewProps> = ({
               Answer Reflection
             </button>
           </div>
-          <p className="text-sm text-emerald-900/70 font-medium">
+          <p className="text-sm text-emerald-900/70 dark:text-emerald-200/70 font-medium">
             {parsedInsight.follow_up_prompt}
           </p>
         </div>
@@ -123,10 +123,10 @@ export const AIInsightView: React.FC<AIInsightViewProps> = ({
         </div>
 
         {/* JSON Preview Toggle */}
-        <div className="pt-4 border-t border-emerald-100/50">
+        <div className="pt-4 border-t border-emerald-100/50 dark:border-emerald-500/20">
           <button
             onClick={() => setShowJsonPreview(!showJsonPreview)}
-            className="text-[10px] font-bold uppercase tracking-widest text-emerald-600/40 hover:text-emerald-600 transition-colors flex items-center gap-1"
+            className="text-[10px] font-bold uppercase tracking-widest text-emerald-600/40 dark:text-emerald-400/40 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1"
           >
             {showJsonPreview ? 'Hide Raw JSON' : 'Show Raw JSON'}
           </button>
@@ -139,7 +139,7 @@ export const AIInsightView: React.FC<AIInsightViewProps> = ({
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                <pre className="mt-4 p-4 bg-black/5 rounded-xl text-[10px] font-mono text-emerald-900/60 overflow-x-auto">
+                <pre className="mt-4 p-4 bg-black/5 dark:bg-black/40 rounded-xl text-[10px] font-mono text-emerald-900/60 dark:text-emerald-200/60 overflow-x-auto">
                   {JSON.stringify(parsedInsight, null, 2)}
                 </pre>
               </motion.div>
@@ -164,10 +164,8 @@ export const WeeklySummaryOverlay: React.FC<WeeklySummaryOverlayProps> = ({
   isSummaryLoading,
   weeklySummary
 }) => {
-  if (!isSummaryOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <motion.div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -179,16 +177,16 @@ export const WeeklySummaryOverlay: React.FC<WeeklySummaryOverlayProps> = ({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-2xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-2xl bg-white dark:bg-[#1A1A1A] border border-black/5 dark:border-white/10 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       >
-        <div className="p-8 border-b border-black/5 flex items-center justify-between">
+        <div className="p-8 border-b border-black/5 dark:border-white/10 flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-light tracking-tight serif italic">Weekly Reflection</h2>
-            <p className="text-xs text-gray-400 uppercase tracking-widest font-medium mt-1">Insights & Patterns</p>
+            <h2 className="text-3xl font-light tracking-tight font-serif italic text-gray-900 dark:text-white">Weekly Reflection</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-400 uppercase tracking-widest font-medium mt-1">Insights & Patterns</p>
           </div>
           <button
             onClick={() => setIsSummaryOpen(false)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
           >
             <X className="w-6 h-6 text-gray-400" />
           </button>
@@ -198,37 +196,37 @@ export const WeeklySummaryOverlay: React.FC<WeeklySummaryOverlayProps> = ({
           {isSummaryLoading ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-4">
               <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-gray-500 italic">Gathering your thoughts...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 italic">Gathering your thoughts...</p>
             </div>
           ) : weeklySummary ? (
             <>
               {/* Stats Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-6 bg-gray-50 rounded-3xl border border-black/5">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Avg Mood</p>
+                <div className="p-6 bg-gray-50 dark:bg-white/5 rounded-3xl border border-black/5 dark:border-white/10">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-400 uppercase tracking-wider font-bold mb-1">Avg Mood</p>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-light">{weeklySummary.avgMood.toFixed(1)}</span>
+                    <span className="text-3xl font-light text-gray-900 dark:text-white">{weeklySummary.avgMood.toFixed(1)}</span>
                     <span className="text-xs text-gray-400">/10</span>
                   </div>
                 </div>
-                <div className="p-6 bg-gray-50 rounded-3xl border border-black/5">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Sessions</p>
+                <div className="p-6 bg-gray-50 dark:bg-white/5 rounded-3xl border border-black/5 dark:border-white/10">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-400 uppercase tracking-wider font-bold mb-1">Sessions</p>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-light">{weeklySummary.sessionCount}</span>
+                    <span className="text-3xl font-light text-gray-900 dark:text-white">{weeklySummary.sessionCount}</span>
                     <span className="text-xs text-gray-400">this week</span>
                   </div>
                 </div>
-                <div className="p-6 bg-gray-50 rounded-3xl border border-black/5">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Top Mood</p>
+                <div className="p-6 bg-gray-50 dark:bg-white/5 rounded-3xl border border-black/5 dark:border-white/10">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-400 uppercase tracking-wider font-bold mb-1">Top Mood</p>
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl font-light">
+                    <span className="text-2xl font-light text-gray-900 dark:text-white">
                       {MOODS.find(m => m.label === weeklySummary.topMood)?.emoji} {weeklySummary.topMood}
                     </span>
                   </div>
                 </div>
-                <div className="p-6 bg-gray-50 rounded-3xl border border-black/5">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Trend</p>
-                  <div className="flex items-center gap-1 text-emerald-600">
+                <div className="p-6 bg-gray-50 dark:bg-white/5 rounded-3xl border border-black/5 dark:border-white/10">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-400 uppercase tracking-wider font-bold mb-1">Trend</p>
+                  <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                     <ArrowUpRight className="w-4 h-4" />
                     <span className="text-xl font-medium">{weeklySummary.trend}</span>
                   </div>
@@ -237,17 +235,17 @@ export const WeeklySummaryOverlay: React.FC<WeeklySummaryOverlayProps> = ({
 
               {/* Mood Distribution */}
               <div className="space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900">Mood Distribution</h3>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900 dark:text-white">Mood Distribution</h3>
                 <div className="space-y-3">
                   {Object.entries(weeklySummary.moodDistribution).map(([mood, count]) => (
                     <div key={mood} className="space-y-1">
                       <div className="flex justify-between text-xs font-medium">
-                        <span className="text-gray-700">
+                        <span className="text-gray-700 dark:text-gray-300">
                           {MOODS.find(m => m.label === mood)?.emoji} {mood}
                         </span>
                         <span className="text-gray-400">{count} sessions</span>
                       </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${(count / weeklySummary.sessionCount) * 100}%` }}
@@ -261,10 +259,10 @@ export const WeeklySummaryOverlay: React.FC<WeeklySummaryOverlayProps> = ({
 
               {/* Recurring Themes */}
               <div className="space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900">Recurring Themes</h3>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900 dark:text-white">Recurring Themes</h3>
                 <div className="flex flex-wrap gap-2">
                   {weeklySummary.recurringThemes.map(theme => (
-                    <span key={theme} className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-2xl text-sm font-medium border border-emerald-100">
+                    <span key={theme} className="px-4 py-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 rounded-2xl text-sm font-medium border border-emerald-100 dark:border-emerald-500/20">
                       {theme}
                     </span>
                   ))}
@@ -273,11 +271,11 @@ export const WeeklySummaryOverlay: React.FC<WeeklySummaryOverlayProps> = ({
             </>
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500">No summary available yet. Keep journaling!</p>
+              <p className="text-gray-500 dark:text-gray-400">No summary available yet. Keep journaling!</p>
             </div>
           )}
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 };

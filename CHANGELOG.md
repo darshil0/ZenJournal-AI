@@ -2,6 +2,17 @@
 
 All notable changes to ZenJournal AI will be documented in this file.
 
+## [1.1.6] - 2026-05-13
+
+### Fixed
+- **Serif Utility Class Correction (`src/App.tsx`, `src/components/SettingsModal.tsx`, `src/components/ChatOverlay.tsx`, `src/components/Insights.tsx`):** Replaced four occurrences of the incorrect Tailwind class `serif` with `font-serif` to ensure proper font family rendering.
+- **Sidebar Loader Icon (`src/components/Sidebar.tsx`):** Corrected `Loader2` import from `lucide-react` and removed redundant inline SVG component definition.
+- **Overlay Exit Animations (`src/App.tsx`, `src/components/ChatOverlay.tsx`, `src/components/Insights.tsx`, `src/components/SettingsModal.tsx`):** Wrapped conditionally rendered overlays (`ChatOverlay`, `WeeklySummaryOverlay`, `SettingsModal`) with `AnimatePresence` in `App.tsx` and removed internal early null returns so Framer Motion exit animations execute on unmount.
+- **Comprehensive Dark Mode (`src/components/`):** Added complete dark-mode Tailwind classes (`dark:`) covering backgrounds, text, borders, inputs, buttons, and card containers across `ChatOverlay`, `WeeklySummaryOverlay`, `SettingsModal`, `EditorSection`, `Header`, `Sidebar`, and the `App.tsx` footer.
+- **XSS Prevention in Reflection Answers (`src/App.tsx`):** Escaped untrusted AI reflection prompt text in `handleAnswerReflection` before constructing editor HTML content to prevent HTML/script injection.
+- **HighlightText Regex Reliability (`src/utils/helpers.tsx`):** Fixed regex statefulness in `HighlightText` by separating string splitting from non-global pattern matching, guaranteeing deterministic highlights across re-renders and term lists.
+- **Cleaned Unused Imports (`src/components/ChatOverlay.tsx`, `src/components/SettingsModal.tsx`):** Removed unused `AnimatePresence` imports.
+
 ## [1.1.5] - 2026-05-12
 
 ### Added

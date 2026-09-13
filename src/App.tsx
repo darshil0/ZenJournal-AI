@@ -52,11 +52,21 @@ export default function App() {
   const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null }>({ start: null, end: null });
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [settings, setSettings] = useState({
-    fontSize: 'medium',
-    theme: 'system',
-    autosave: true,
-    aiTone: 'warm'
+  const [settings, setSettings] = useState(() => {
+    const savedSettings = localStorage.getItem('zenjournal_settings');
+    if (savedSettings) {
+      try {
+        return JSON.parse(savedSettings);
+      } catch (e) {
+        console.error("Failed to load settings", e);
+      }
+    }
+    return {
+      fontSize: 'medium',
+      theme: 'system',
+      autosave: true,
+      aiTone: 'warm'
+    };
   });
 
   // Chat State
@@ -166,14 +176,6 @@ export default function App() {
       }
     }
 
-    const savedSettings = localStorage.getItem('zenjournal_settings');
-    if (savedSettings) {
-      try {
-        setSettings(JSON.parse(savedSettings));
-      } catch (e) {
-        console.error("Failed to load settings", e);
-      }
-    }
   }, []);
 
   // Save entries to local storage
@@ -589,10 +591,20 @@ export default function App() {
     };
   }, []);
 
+  const escapeHtml = (str: string) => {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
   const handleAnswerReflection = (prompt: string) => {
     if (editor) {
       const currentContent = editor.getHTML();
-      editor.commands.setContent(currentContent + `<p><br/></p><p><strong>Reflecting on:</strong> ${prompt}</p><p><em>[Add your details here...]</em></p>`);
+      const safePrompt = escapeHtml(prompt);
+      editor.commands.setContent(currentContent + `<p><br/></p><p><strong>Reflecting on:</strong> ${safePrompt}</p><p><em>[Add your details here...]</em></p>`);
       editor.commands.focus();
     }
   };
@@ -697,7 +709,7 @@ export default function App() {
                     <div className="absolute -top-3 left-8 px-3 py-1 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-lg">
                       Personalized Prompt
                     </div>
-                    <p className="text-emerald-900 dark:text-emerald-400 text-lg serif italic leading-relaxed">
+                    <p className="text-emerald-900 dark:text-emerald-400 text-lg font-serif italic leading-relaxed">
                       "{dailyPrompt}"
                     </p>
                     <button
@@ -721,7 +733,7 @@ export default function App() {
         </div>
 
         {selectedEntry && (
-          <footer className="h-10 border-t border-black/5 flex items-center justify-between px-6 bg-white/80 backdrop-blur-sm text-[10px] text-gray-400 uppercase tracking-widest">
+          <footer className="h-10 border-t border-black/5 dark:border-white/5 flex items-center justify-between px-6 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-sm text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest">
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
@@ -753,31 +765,46 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <ChatOverlay
-        isFocusMode={isFocusMode}
-        isChatOpen={isChatOpen}
-        setIsChatOpen={setIsChatOpen}
-        chatMessages={chatMessages}
-        chatInput={chatInput}
-        setChatInput={setChatInput}
-        handleSendMessage={handleSendMessage}
-        isChatLoading={isChatLoading}
-      />
+      <AnimatePresence>
+        {!isFocusMode && isChatOpen && (
+          <ChatOverlay
+            key="chat-overlay"
+            isFocusMode={isFocusMode}
+            isChatOpen={isChatOpen}
+            setIsChatOpen={setIsChatOpen}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            handleSendMessage={handleSendMessage}
+            isChatLoading={isChatLoading}
+          />
+        )}
+      </AnimatePresence>
 
-      <WeeklySummaryOverlay
-        isSummaryOpen={isSummaryOpen}
-        setIsSummaryOpen={setIsSummaryOpen}
-        isSummaryLoading={isSummaryLoading}
-        weeklySummary={weeklySummary}
-      />
+      <AnimatePresence>
+        {isSummaryOpen && (
+          <WeeklySummaryOverlay
+            key="weekly-summary-overlay"
+            isSummaryOpen={isSummaryOpen}
+            setIsSummaryOpen={setIsSummaryOpen}
+            isSummaryLoading={isSummaryLoading}
+            weeklySummary={weeklySummary}
+          />
+        )}
+      </AnimatePresence>
 
-      <SettingsModal
-        showSettings={showSettings}
-        setShowSettings={setShowSettings}
-        settings={settings}
-        setSettings={setSettings}
-        handleExport={handleExport}
-      />
+      <AnimatePresence>
+        {showSettings && (
+          <SettingsModal
+            key="settings-modal"
+            showSettings={showSettings}
+            setShowSettings={setShowSettings}
+            settings={settings}
+            setSettings={setSettings}
+            handleExport={handleExport}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

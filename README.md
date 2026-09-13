@@ -560,7 +560,7 @@ Have an idea? [Open an issue](https://github.com/darshil0/ZenJournal-AI/issues) 
 
 ## 📊 Project Stats
 
-- **Version:** 1.1.4
+- **Version:** 1.1.6
 - **Total Commits:** 50+
 - **Contributors:** 1
 - **Stars:** Give us a ⭐ if you find this helpful!

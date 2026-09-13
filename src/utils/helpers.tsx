@@ -8,21 +8,47 @@ export const generateId = () => {
 };
 
 export function HighlightText({ text, query }: { text: string; query: string }) {
-  if (!query.trim()) return <>{text}</>;
+  if (!text) return null;
+  if (!query || !query.trim()) return <>{text}</>;
 
-  const escapedQuery = query
-    .split(/\s+/)
-    .filter(Boolean)
+  const terms: string[] = [];
+  const exactMatches = query.match(/"([^"]+)"/g);
+  let workingQuery = query;
+
+  if (exactMatches) {
+    exactMatches.forEach(m => {
+      const inner = m.replace(/"/g, '').trim();
+      if (inner) terms.push(inner);
+      workingQuery = workingQuery.replace(m, ' ');
+    });
+  }
+
+  workingQuery.split(/\s+/).forEach(word => {
+    if (!word) return;
+    if (word.startsWith('-')) return;
+    if (word.startsWith('#')) {
+      const tagWord = word.slice(1).trim();
+      if (tagWord) terms.push(tagWord);
+    } else {
+      terms.push(word);
+    }
+  });
+
+  if (terms.length === 0) return <>{text}</>;
+
+  const escapedPattern = terms
     .map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('|');
 
-  const regex = new RegExp(`(${escapedQuery})`, 'gi');
-  const parts = text.split(regex);
+  const splitRegex = new RegExp(`(${escapedPattern})`, 'gi');
+  const matchRegex = new RegExp(`^(${escapedPattern})$`, 'i');
+
+  const parts = text.split(splitRegex);
 
   return (
     <>
       {parts.map((part, i) => (
-        regex.test(part) ? (
+        matchRegex.test(part) ? (
           <mark key={i} className="bg-emerald-100 text-emerald-900 rounded-sm px-0.5">{part}</mark>
         ) : (
           <span key={i}>{part}</span>

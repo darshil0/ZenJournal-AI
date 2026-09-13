@@ -52,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-2 lg:gap-4">
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors text-gray-500"
+          className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors text-gray-500 dark:text-gray-400"
         >
           <span className="hidden lg:block">
             {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
         {selectedEntry && (
           <div className="flex flex-col">
-            <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
+            <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-400 font-medium">
               <Calendar className="w-3 h-3" />
               {new Date(selectedEntry.journaledAt).toLocaleDateString('en-US', {
                 weekday: 'long',
@@ -72,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
                 day: 'numeric'
               })}
             </div>
-            <div className="text-[10px] text-gray-300 font-mono">
+            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
               Created: {new Date(selectedEntry.createdAt).toLocaleTimeString()} | Updated: {new Date(selectedEntry.updatedAt).toLocaleTimeString()}
             </div>
           </div>
@@ -87,18 +87,18 @@ export const Header: React.FC<HeaderProps> = ({
               (document.querySelector('input[placeholder="Search reflections..."]') as HTMLInputElement)?.focus();
             }, 100);
           }}
-          className="lg:hidden p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
+          className="lg:hidden p-2 text-gray-400 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
         >
           <Search className="w-5 h-5" />
         </button>
         <button
           onClick={() => setIsFocusMode(!isFocusMode)}
-          className={`p-2 rounded-lg transition-colors ${isFocusMode ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5'}`}
+          className={`p-2 rounded-lg transition-colors ${isFocusMode ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5'}`}
           title={isFocusMode ? "Exit Focus Mode" : "Enter Focus Mode"}
         >
           {isFocusMode ? <Minimize2 className="w-4 lg:w-5 h-4 lg:h-5" /> : <Maximize2 className="w-4 lg:w-5 h-4 lg:h-5" />}
         </button>
-        <div className="hidden sm:block w-px h-4 bg-black/5 mx-1" />
+        <div className="hidden sm:block w-px h-4 bg-black/5 dark:bg-white/10 mx-1" />
         <button
           onClick={() => setIsChatOpen(true)}
           className="flex items-center gap-2 px-2 lg:px-4 py-1.5 bg-white dark:bg-white/5 border border-black/5 dark:border-white/5 text-gray-700 dark:text-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
@@ -118,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
           <span className="hidden sm:inline">{isSummaryLoading ? 'Analyzing...' : 'Stats'}</span>
         </button>
-        <div className="w-px h-4 bg-black/5 mx-2" />
+        <div className="w-px h-4 bg-black/5 dark:bg-white/10 mx-2" />
         {selectedEntry && (
           <>
             <button
@@ -151,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
             <button
               onClick={() => deleteEntry(selectedEntry.id)}
-              className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
+              className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 text-gray-400 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg transition-colors"
             >
               <Trash2 className="w-5 h-5" />
             </button>
